@@ -1,0 +1,21 @@
+---
+title: "MSE 246 Data Summary"
+author: "Samuel Hansen"
+date: "1/16/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+file_in <- "../../Downloads/SBA_Loan_data_.xlsx"
+```
+
+```{r}
+df <- 
+  readxl::read_excel(file_in)
+```
+
