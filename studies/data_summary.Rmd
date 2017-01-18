@@ -2,15 +2,19 @@
 title: "MSE 246 Data Summary"
 author: "Samuel Hansen"
 date: "1/16/2017"
-output: github_document
+output: 
+  github_document:
+    toc: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, 
+                      message = FALSE, cache = TRUE)
 ```
 
 ```{r}
 # Initialize libraries and input files 
+library(ggrepel)
 library(knitr)
 library(lubridate)
 library(tidyverse)
@@ -87,13 +91,135 @@ df %>%
   labs(x = "Approval Year", y = "Default Rate", title = "Default Rate by Loan Amount")
 ```
 
+#Subprogram Description
+
+##Default Rate vs. Subprogram Description
+
+Subprogram description is the specific subprogram that the loan was approved 
+under. See SOP 50 10 5 for definitions and rules for each subprogram.
+
 ```{r}
-# EXTRA CODE SNIPPETS 
-         # loan_bin = ifelse(GrossApproval <= 50000, "<= 50k",
-         #                   ifelse(GrossApproval <= 100000, "<= 100k", 
-         #                          ifelse(GrossApproval <= 250000, "<= 250k",
-         #                                 ifelse(GrossApproval <= 500000, "<= 500k",
-         #                                        ifelse(GrossApproval <= 1000000, "<= 1m",
-         #                                               ifelse(GrossApproval > 1000000, ">1m", "NA"))))))
+df %>%
+  group_by(subpgmdesc) %>%
+  summarise(count = n(),
+            frac_defaulted = mean(LoanStatus == "CHGOFF")) %>%
+  ggplot(mapping = aes(x = count, y = frac_defaulted, color = subpgmdesc)) +
+  geom_point() +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_continuous(labels = scales::comma) +
+  scale_color_discrete(name = "Subprogram Type") + 
+  labs(x = "Count of Subprogram", y = "Default Rate",
+       title = "Default Rate vs. Subprogram Type")
 ```
 
+This plot suggests we can collapse the `PSF` and `Refinance` categories into `other` because they have low counts and default rates. 
+
+#Business Type
+
+##Default Rate vs. Business Type
+
+```{r}
+df %>%
+  group_by(BusinessType) %>%
+  summarise(count = n(),
+            frac_defaulted = mean(LoanStatus == "CHGOFF")) %>%
+  ggplot(mapping = aes(x = count, y = frac_defaulted, color = BusinessType)) +
+  geom_point() +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_continuous(labels = scales::comma) +
+  scale_color_discrete(name = "Business Type") + 
+  labs(x = "Count of Business Type", y = "Default Rate",
+       title = "Default Rate vs. Business Type")
+```
+
+##Default Rate vs. Business Type by Approval Year
+
+```{r, fig.width=10, fig.height=6}
+df %>%
+  group_by(BusinessType, year = year(ApprovalDate)) %>%
+  summarise(count = n(),
+            frac_defaulted = mean(LoanStatus == "CHGOFF")) %>%
+  ggplot(mapping = aes(x = year, y = frac_defaulted, color = BusinessType)) +
+  geom_point(mapping = aes(size = count)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::percent) +
+  scale_size_continuous(name = "Count") +
+  # scale_x_continuous(labels = scales::comma) +
+  scale_color_discrete(name = "Business Type") + 
+  labs(x = "Approval Year", y = "Default Rate",
+       title = "Default Rate vs. Business Type by Approval Year")
+```
+
+#Loan Term
+
+##Load Term Histogram
+
+```{r}
+df %>%
+  ggplot(mapping = aes(x = TermInMonths)) +
+  geom_histogram(binwidth = 12) +
+  scale_y_log10() +
+  scale_x_continuous(breaks = seq(0,400,24)) +
+  labs(x = "Loan Term in Months", y = "Count",
+       title = "Loan Term Histogram")
+```
+
+##Default Rate vs. Load Term by Approval Year
+
+```{r}
+df %>%
+  mutate(term_bin = cut_width(TermInMonths, width = 48), 
+         term_bin = plyr::revalue(term_bin, 
+                                  replace = c("[-24,24]" = "[0,24]"))) %>%
+  group_by(term_bin) %>%
+  summarise(count = n(),
+            frac_defaulted = mean(LoanStatus == "CHGOFF")) %>%
+  ggplot(mapping = aes(x = count, y = frac_defaulted, color = term_bin)) +
+  geom_point() +
+  scale_x_log10(labels = scales::comma) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_color_discrete(name = "Loan Term (Months)") + 
+  labs(x = "Count of Term Bin", y = "Default Rate",
+       title = "Default Rate vs. Loan Term")
+```
+
+The bin (120,168] has an unusually high default rate; however, it has a low
+count. In fact, all term bins except for (216,264] and (72,120] have less than
+100 observations. In turn, we may consider collapsing these infrequent bins,
+rather than treating `Term in Months` as a continuous feature. 
+
+#Matching Lending State
+
+##Default Rate vs. Matching Lending State by Approval Year
+
+```{r, fig.width=10, fig.height=6}
+df %>%
+  group_by(SameLendingState, year = year(ApprovalDate)) %>%
+  summarise(count = n(),
+            frac_defaulted = mean(LoanStatus == "CHGOFF")) %>%
+  ggplot(mapping = aes(x = year, y = frac_defaulted, color = SameLendingState)) +
+  geom_point(mapping = aes(size = count)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::percent) +
+  scale_size_continuous(name = "Count") + 
+  labs(x = "Approval Year", y = "Default Rate", 
+       title = "Default Rate by Lending State Match and Approval Year")
+```
+
+#Multi-Time Borrower
+
+##Default Rate vs. Multi-Time Borrower Status by Approval Year
+
+```{r, fig.width=10, fig.height=6}
+df %>%
+  group_by(MultiTimeBorrower, year = year(ApprovalDate)) %>%
+  summarise(count = n(),
+            frac_defaulted = mean(LoanStatus == "CHGOFF")) %>%
+  ggplot(mapping = aes(x = year, y = frac_defaulted, color = MultiTimeBorrower)) +
+  geom_point(mapping = aes(size = count)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::percent) +
+  scale_size_continuous(name = "Count") + 
+  labs(x = "Approval Year", y = "Default Rate", 
+       title = "Default Rate by Multi-Time Borrower Status and Approval Year")
+```
