@@ -1,15 +1,9 @@
----
-title: "MSE 246 Data Summary"
-author: "Samuel Hansen"
-date: "1/16/2017"
-output: github_document
----
+MSE 246 Data Summary
+================
+Samuel Hansen
+1/16/2017
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
-```
-
-```{r}
+``` r
 # Initialize libraries and input files 
 library(knitr)
 library(lubridate)
@@ -17,7 +11,7 @@ library(tidyverse)
 file_in <- "../data/SBA_Loan_data_1.csv"
 ```
 
-```{r}
+``` r
 # Read in data 
 df <- 
   read_csv(file_in) %>%
@@ -25,8 +19,10 @@ df <-
   mutate(ApprovalDate = mdy(ApprovalDate))
 ```
 
-#Fraction of Defaulted Loans 
-```{r}
+Fraction of Defaulted Loans
+===========================
+
+``` r
 kable(
   df %>%
   count(LoanStatus) %>%
@@ -34,10 +30,18 @@ kable(
 )
 ```
 
-#NAICS Code 
+| LoanStatus |      n|  proportion|
+|:-----------|------:|-----------:|
+| CHGOFF     |   8982|   0.1638872|
+| PIF        |  45824|   0.8361128|
 
-##Default Rate by NAICS Code 
-```{r, fig.width=10, fig.height=6}
+NAICS Code
+==========
+
+Default Rate by NAICS Code
+--------------------------
+
+``` r
 df %>%
   group_by(NAICS, year = year(ApprovalDate)) %>%
   summarise(default_rate = mean(LoanStatus == "CHGOFF")) %>%
@@ -48,10 +52,15 @@ df %>%
   labs(x = "Approval Year", y = "Default Rate", title = "Default Rate by NAICS Code")
 ```
 
-#Loan Amount
+![](data_summary_files/figure-markdown_github/unnamed-chunk-4-1.png)
 
-##Loan Amount Histogram
-```{r}
+Loan Amount
+===========
+
+Loan Amount Histogram
+---------------------
+
+``` r
 df %>%
   ggplot(mapping = aes(x = GrossApproval)) +
   geom_histogram(binwidth = 10000) +
@@ -60,8 +69,12 @@ df %>%
        title = "Loan Gross Approval Histogram")
 ```
 
-##Default Rate by Loan Amount
-```{r}
+![](data_summary_files/figure-markdown_github/unnamed-chunk-5-1.png)
+
+Default Rate by Loan Amount
+---------------------------
+
+``` r
 loan_labels <- c("(-10,1e+05]" = "< 100k",
                  "(1e+05,3e+05]" = "100k - 300k",
                  "(3e+05,5e+05]" = "300k - 500k",
@@ -87,7 +100,9 @@ df %>%
   labs(x = "Approval Year", y = "Default Rate", title = "Default Rate by Loan Amount")
 ```
 
-```{r}
+![](data_summary_files/figure-markdown_github/unnamed-chunk-6-1.png)
+
+``` r
 # EXTRA CODE SNIPPETS 
          # loan_bin = ifelse(GrossApproval <= 50000, "<= 50k",
          #                   ifelse(GrossApproval <= 100000, "<= 100k", 
@@ -96,4 +111,3 @@ df %>%
          #                                        ifelse(GrossApproval <= 1000000, "<= 1m",
          #                                               ifelse(GrossApproval > 1000000, ">1m", "NA"))))))
 ```
-
