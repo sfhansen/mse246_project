@@ -10,12 +10,38 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
+# Initialize libraries and input files 
+library(knitr)
+library(lubridate)
 library(tidyverse)
-file_in <- "../../Downloads/SBA_Loan_data_.xlsx"
+file_in <- "../data/SBA_Loan_data_1.csv"
 ```
 
 ```{r}
+# Read in data 
 df <- 
-  readxl::read_excel(file_in)
+  read_csv(file_in) %>%
+  plyr::rename(replace = c("2DigitNAICS" = "NAICS")) %>%
+  mutate(ApprovalDate = mdy(ApprovalDate))
+```
+
+#Fraction of Defaulted Loans 
+```{r}
+kable(
+  df %>%
+  count(LoanStatus) %>%
+  mutate(proportion = n/sum(n))
+)
+```
+
+#Default Rate by NAICS Code 
+```{r}
+df %>%
+  group_by(NAICS, year = year(ApprovalDate)) %>%
+  summarise(default_rate = mean(LoanStatus == "CHGOFF")) %>%
+  ggplot(mapping = aes(x = year, y = default_rate, color = NAICS)) +
+  geom_point() +
+  geom_line() +
+  labs(x = "Approval Year", y = "Default Rate", title = "Default Rate by NAICS Code")
 ```
 
