@@ -205,7 +205,7 @@ df %>%
 
 
 
-##Default Rate vs. Load Term by Approval Year
+##Default Rate vs. Load Term by Bin Count
 
 ```{r}
 df %>%
