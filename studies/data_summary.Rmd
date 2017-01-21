@@ -43,6 +43,7 @@ kable(
 ##Default Rate by NAICS Code 
 ```{r, fig.width=10, fig.height=6}
 df %>%
+  filter(NAICS != "00") %>%
   group_by(NAICS, year = year(ApprovalDate)) %>%
   summarise(default_rate = mean(LoanStatus == "CHGOFF")) %>%
   ggplot(mapping = aes(x = year, y = default_rate, color = NAICS)) +
@@ -164,6 +165,46 @@ df %>%
        title = "Loan Term Histogram")
 ```
 
+##Default Rate by Loan Term 
+
+```{r}
+df %>% 
+  group_by(TermInMonths) %>%
+  summarise(count = n(),
+            frac_defaulted = mean(LoanStatus == "CHGOFF")) %>%
+  ggplot(mapping = aes(x = TermInMonths, y = frac_defaulted)) +
+  geom_point(mapping = aes(size = count)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_continuous(breaks = seq(0,400,60)) +
+  labs(x = "Loan Term in Months", y = "Default Rate",
+       title = "Default Rate by Loan Term") +
+  scale_size_area(name = "# of Loans", labels = scales::comma)
+```
+
+##Default Rate by Loan Term and Divisibility 
+```{r}
+df %>% 
+  group_by(TermInMonths) %>%
+  summarise(count = n(),
+            frac_defaulted = mean(LoanStatus == "CHGOFF")) %>% 
+  arrange(desc(frac_defaulted)) %>%
+  mutate(term_divisibility = ifelse(TermInMonths %% 2 == 0, "Even", "Odd")) %>%
+  ggplot(mapping = aes(x = TermInMonths, 
+                       y = frac_defaulted, 
+                       color = term_divisibility)) +
+  geom_point(mapping = aes(size = count)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_continuous(breaks = seq(0,400,60)) +
+  scale_color_discrete(name = "Term Type") +
+  labs(x = "Loan Term in Months", y = "Default Rate",
+       title = "Default Rate by Loan Term") +
+  scale_size_area(name = "# of Loans", labels = scales::comma)
+```
+
+
+
 ##Default Rate vs. Load Term by Approval Year
 
 ```{r}
@@ -223,3 +264,19 @@ df %>%
   labs(x = "Approval Year", y = "Default Rate", 
        title = "Default Rate by Multi-Time Borrower Status and Approval Year")
 ```
+
+
+```{r}
+# Fraction of active loans in a given year
+# number of defaulted / number of loans active in a given year 
+
+# df2 <-
+#   read_delim("../data/SBA_Loan_data.txt", delim = "\t")
+# 
+# df2 <-
+#   df2 %>%
+#   filter(LoanStatus == "CHGOFF" | LoanStatus == "PIF",
+#          TermInMonths > 0,
+#          ) %>%
+```
+

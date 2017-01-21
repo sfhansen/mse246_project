@@ -16,6 +16,8 @@ Samuel Hansen
     -   [Default Rate vs. Business Type by Approval Year](#default-rate-vs.-business-type-by-approval-year)
 -   [Loan Term](#loan-term)
     -   [Load Term Histogram](#load-term-histogram)
+    -   [Default Rate by Loan Term](#default-rate-by-loan-term)
+    -   [Default Rate by Loan Term and Divisibility](#default-rate-by-loan-term-and-divisibility)
     -   [Default Rate vs. Load Term by Approval Year](#default-rate-vs.-load-term-by-approval-year)
 -   [Matching Lending State](#matching-lending-state)
     -   [Default Rate vs. Matching Lending State by Approval Year](#default-rate-vs.-matching-lending-state-by-approval-year)
@@ -63,6 +65,7 @@ Default Rate by NAICS Code
 
 ``` r
 df %>%
+  filter(NAICS != "00") %>%
   group_by(NAICS, year = year(ApprovalDate)) %>%
   summarise(default_rate = mean(LoanStatus == "CHGOFF")) %>%
   ggplot(mapping = aes(x = year, y = default_rate, color = NAICS)) +
@@ -209,6 +212,51 @@ df %>%
 
 ![](data_summary_files/figure-markdown_github/unnamed-chunk-10-1.png)
 
+Default Rate by Loan Term
+-------------------------
+
+``` r
+df %>% 
+  group_by(TermInMonths) %>%
+  summarise(count = n(),
+            frac_defaulted = mean(LoanStatus == "CHGOFF")) %>%
+  ggplot(mapping = aes(x = TermInMonths, y = frac_defaulted)) +
+  geom_point(mapping = aes(size = count)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_continuous(breaks = seq(0,400,60)) +
+  labs(x = "Loan Term in Months", y = "Default Rate",
+       title = "Default Rate by Loan Term") +
+  scale_size_area(name = "# of Loans", labels = scales::comma)
+```
+
+![](data_summary_files/figure-markdown_github/unnamed-chunk-11-1.png)
+
+Default Rate by Loan Term and Divisibility
+------------------------------------------
+
+``` r
+df %>% 
+  group_by(TermInMonths) %>%
+  summarise(count = n(),
+            frac_defaulted = mean(LoanStatus == "CHGOFF")) %>% 
+  arrange(desc(frac_defaulted)) %>%
+  mutate(term_divisibility = ifelse(TermInMonths %% 2 == 0, "Even", "Odd")) %>%
+  ggplot(mapping = aes(x = TermInMonths, 
+                       y = frac_defaulted, 
+                       color = term_divisibility)) +
+  geom_point(mapping = aes(size = count)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_continuous(breaks = seq(0,400,60)) +
+  scale_color_discrete(name = "Term Type") +
+  labs(x = "Loan Term in Months", y = "Default Rate",
+       title = "Default Rate by Loan Term") +
+  scale_size_area(name = "# of Loans", labels = scales::comma)
+```
+
+![](data_summary_files/figure-markdown_github/unnamed-chunk-12-1.png)
+
 Default Rate vs. Load Term by Approval Year
 -------------------------------------------
 
@@ -229,7 +277,7 @@ df %>%
        title = "Default Rate vs. Loan Term")
 ```
 
-![](data_summary_files/figure-markdown_github/unnamed-chunk-11-1.png)
+![](data_summary_files/figure-markdown_github/unnamed-chunk-13-1.png)
 
 The bin (120,168\] has an unusually high default rate; however, it has a low count. In fact, all term bins except for (216,264\] and (72,120\] have less than 100 observations. In turn, we may consider collapsing these infrequent bins, rather than treating `Term in Months` as a continuous feature.
 
@@ -253,7 +301,7 @@ df %>%
        title = "Default Rate by Lending State Match and Approval Year")
 ```
 
-![](data_summary_files/figure-markdown_github/unnamed-chunk-12-1.png)
+![](data_summary_files/figure-markdown_github/unnamed-chunk-14-1.png)
 
 Multi-Time Borrower
 ===================
@@ -275,4 +323,18 @@ df %>%
        title = "Default Rate by Multi-Time Borrower Status and Approval Year")
 ```
 
-![](data_summary_files/figure-markdown_github/unnamed-chunk-13-1.png)
+![](data_summary_files/figure-markdown_github/unnamed-chunk-15-1.png)
+
+``` r
+# Fraction of active loans in a given year
+# number of defaulted / number of loans active in a given year 
+
+# df2 <-
+#   read_delim("../data/SBA_Loan_data.txt", delim = "\t")
+# 
+# df2 <-
+#   df2 %>%
+#   filter(LoanStatus == "CHGOFF" | LoanStatus == "PIF",
+#          TermInMonths > 0,
+#          ) %>%
+```
