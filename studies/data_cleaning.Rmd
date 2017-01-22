@@ -73,7 +73,7 @@ df <-
     term_divisibility = if_else(TermInMonths %% 2 == 0, "Even", "Odd"),
     
     # Encode Charge-off as "1"; otherwise as "0"
-    LoanStatus = if_else(LoanStatus == "CHGOFF", 1, 0)
+    LoanStatus = if_else(LoanStatus == "CHGOFF", "default", "paid")
     ) %>%
   
   # Convert features to factors 
@@ -181,6 +181,13 @@ train_selected_vars <- train %>%
   select(one_of(selected_vars), LoanStatus)
 ```
 
+```{r, echo = FALSE}
+train_selected_vars <-
+  train_selected_vars %>%
+  mutate(LoanStatus = if_else(LoanStatus == 1, "default", "paid")) %>%
+  dmap_at("LoanStatus", factor)
+```
+
 #Model Fitting 
 
 Using these selected features, we fit models predicting the binary outcome
@@ -188,6 +195,7 @@ of whether a small busniess defaults on a loan. To tune hyperparameters,
 we use 10-fold cross-validation with the one standard-erro rule, which selects
 parameters that obtain the highest cross-validated AUC within one standard error
 of the maximum. 
+
 ```{r}
 # Define cross-validation controls 
 cvCtrl <- trainControl(method = "cv", 
@@ -198,6 +206,7 @@ cvCtrl <- trainControl(method = "cv",
 ```
 
 ##Elastic Net
+
 ```{r, eval=FALSE}
 # Fit penalized logistic regression model (elastic net)
 elastic.fit <- train(LoanStatus ~ .,
@@ -210,6 +219,16 @@ elastic.fit <- train(LoanStatus ~ .,
 ```
 
 ##Random Forest
+
+```{r, eval=FALSE}
+# Fit penalized logistic regression model (elastic net)
+rf.fit <- train(LoanStatus ~ .,
+                   data = train_selected_vars,
+                   preProc = preProcessSteps,
+                   method = "rf",
+                   trControl = cvCtrl,
+                   metric = "ROC")
+```
 
 
 ```{r, echo = FALSE}
