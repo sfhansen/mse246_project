@@ -71,7 +71,7 @@ df <-
     term_divisibility = if_else(TermInMonths %% 2 == 0, "Even", "Odd"),
     
     # Encode Charge-off as "1"; otherwise as "0"
-    LoanStatus = if_else(LoanStatus == "CHGOFF", 1, 0)
+    LoanStatus = if_else(LoanStatus == "CHGOFF", "default", "paid")
     ) %>%
   
   # Convert features to factors 
@@ -126,16 +126,14 @@ train.cntrl <- trainControl(selectionFunction = "oneSE",
                             classProbs = TRUE,
                             summaryFunction = twoClassSummary)
 
-# COMMENTED OUT TO REDUCE RUNTIME 
-# # Perform recursive feature elimination to select variables 
-# rfe.results <- 
-#   rfe(LoanStatus~., 
-#       data = train,
-#       rfeControl = rfe.cntrl,
-#       preProc = preProcessSteps,
-#       metric = "ROC",
-#       trControl = train.cntrl)
-rfe.results <- read_rds("../models/rfe.results.rds")
+# Perform recursive feature elimination to select variables
+rfe.results <-
+  rfe(LoanStatus~.,
+      data = train,
+      rfeControl = rfe.cntrl,
+      preProc = preProcessSteps,
+      metric = "ROC",
+      trControl = train.cntrl)
 ```
 
 The following table shows that recursive feature selection chooses 60 variables to include in subsequent model building.
@@ -169,7 +167,7 @@ ggplot(rfe.results) +
        title = "Recursive Feature Elimination\nNumber of Variables vs. AUC")
 ```
 
-![](data_cleaning_files/figure-markdown_github/unnamed-chunk-7-1.png)
+![](data_cleaning_files/figure-markdown_github/unnamed-chunk-8-1.png)
 
 The importances of the top 30 selected features are given by:
 
@@ -184,7 +182,7 @@ data_frame(predictor = rownames(varImp(rfe.results)),
        title = "Recursive Feature Elimination Variable Importance")
 ```
 
-![](data_cleaning_files/figure-markdown_github/unnamed-chunk-8-1.png)
+![](data_cleaning_files/figure-markdown_github/unnamed-chunk-9-1.png)
 
 ``` r
 # Map factor levels back to their respective features 
@@ -210,7 +208,7 @@ train_selected_vars <- train %>%
 Model Fitting
 =============
 
-Using these selected features, we fit models predicting the binary outcome of whether a small busniess defaults on a loan. To tune hyperparameters, we use 10-fold cross-validation with the one standard-erro rule, which selects parameters that obtain the highest cross-validated AUC within one standard error of the maximum.
+Using these selected features, we fit models predicting the binary outcome of whether a small busniess defaults on a loan. To tune hyperparameters, we use 10-fold cross-validation with the one standard-error rule, which selects parameters that obtain the highest cross-validated AUC within one standard error of the maximum.
 
 ``` r
 # Define cross-validation controls 
@@ -224,6 +222,8 @@ cvCtrl <- trainControl(method = "cv",
 Elastic Net
 -----------
 
+We fit an elastic net model as follows:
+
 ``` r
 # Fit penalized logistic regression model (elastic net)
 elastic.fit <- train(LoanStatus ~ .,
@@ -235,5 +235,70 @@ elastic.fit <- train(LoanStatus ~ .,
                    metric = "ROC")
 ```
 
+The elastic net model was selected with the following hyperparameters:
+
+    ## glmnet 
+    ## 
+    ## 38364 samples
+    ##    14 predictor
+    ##     2 classes: 'default', 'paid' 
+    ## 
+    ## Pre-processing: centered (60), scaled (60) 
+    ## Resampling: Cross-Validated (10 fold) 
+    ## Summary of sample sizes: 34527, 34528, 34527, 34527, 34528, 34528, ... 
+    ## Resampling results across tuning parameters:
+    ## 
+    ##   alpha  lambda        ROC        Sens        Spec     
+    ##   0.10   0.0002841083  0.8342497  0.36266848  0.9554863
+    ##   0.10   0.0028410831  0.8338825  0.35821342  0.9564838
+    ##   0.10   0.0284108311  0.8293940  0.27944012  0.9701060
+    ##   0.55   0.0002841083  0.8342606  0.36298695  0.9554863
+    ##   0.55   0.0028410831  0.8330921  0.35391659  0.9571072
+    ##   0.55   0.0284108311  0.8154765  0.19828360  0.9791771
+    ##   1.00   0.0002841083  0.8342559  0.36298720  0.9555175
+    ##   1.00   0.0028410831  0.8320455  0.34659428  0.9579177
+    ##   1.00   0.0284108311  0.7933869  0.07606301  0.9941085
+    ## 
+    ## ROC was used to select the optimal model using  the one SE rule.
+    ## The final values used for the model were alpha = 0.1 and lambda
+    ##  = 0.002841083.
+
+![](data_cleaning_files/figure-markdown_github/unnamed-chunk-14-1.png)
+
 Random Forest
 -------------
+
+We fit a random forest model as follows:
+
+``` r
+# Fit penalized logistic regression model (elastic net)
+rf.fit <- train(LoanStatus ~ .,
+                   data = train_selected_vars,
+                   preProc = preProcessSteps,
+                   method = "rf",
+                   trControl = cvCtrl,
+                   metric = "ROC")
+```
+
+The random forestmodel was selected with the following hyperparameters:
+
+    ## Random Forest 
+    ## 
+    ## 38364 samples
+    ##    14 predictor
+    ##     2 classes: 'default', 'paid' 
+    ## 
+    ## Pre-processing: centered (60), scaled (60) 
+    ## Resampling: Cross-Validated (10 fold) 
+    ## Summary of sample sizes: 34527, 34528, 34528, 34528, 34528, 34528, ... 
+    ## Resampling results across tuning parameters:
+    ## 
+    ##   mtry  ROC        Sens        Spec     
+    ##    2    0.7992008  0.02211806  0.9990960
+    ##   31    0.8051484  0.36728656  0.9415835
+    ##   60    0.7962180  0.37317373  0.9321696
+    ## 
+    ## ROC was used to select the optimal model using  the one SE rule.
+    ## The final value used for the model was mtry = 31.
+
+![](data_cleaning_files/figure-markdown_github/unnamed-chunk-16-1.png)
