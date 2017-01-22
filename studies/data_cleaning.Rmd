@@ -1,0 +1,236 @@
+---
+title: "MSE 246 Data Cleaning"
+author: "Samuel Hansen"
+date: "1/21/2017"
+output: 
+  github_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, 
+                      message = FALSE, cache = TRUE)
+```
+
+#Overview
+
+This script builds predictive models of small-business defaults using 
+data spanning 1990-2014 provided by the Small Business Association (SBA). 
+To do so, this script implements a pipeline that:
+
+1. Performs feature engineering;
+2. Splits the data into train and test sets;
+3. Normalizes continuous features;
+4. Selects features using recursive feature elimination;
+5. Trains binary outcome predictive models, including LASSO and random 
+forests. 
+
+Lastly, we evaluate the performance of these models on the held-out test set
+in terms of AUC, sensitivity, and calibration. 
+
+```{r}
+# Initialize libraries and input files 
+library(ggrepel)
+library(knitr)
+library(lubridate)
+library(caret)
+library(stringr)
+library(tidyverse)
+file_in <- "../data/SBA_Loan_data_2.csv"
+
+# Read in data 
+df <- 
+  read_csv(file_in) %>%
+  plyr::rename(replace = c("2DigitNAICS" = "NAICS")) %>%
+  mutate(ApprovalDate = mdy(ApprovalDate))
+```
+
+#Feature Engineering
+
+We engineered the following features from the raw data: 
+
+- `first_zip_digit`: the first digit of the borrower's zip code;
+- `2DigitNAICS`: the first two digits of the NAICS code;
+- `subpgmdesc`: condensed infrequent factor levels into "other" category;
+- `approval_year`: extracted year from loan approval datetime object;
+- `term_divisibility`: encodes whether the loan term is divisible by 2. 
+
+```{r}
+df <- 
+  df %>%
+  mutate(
+    # Extract first digit of zip code
+    first_zip_digit = str_sub(BorrZip, end = 1), 
+         
+    # Encode rare subprograms as "Other"
+    subpgmdesc = if_else(subpgmdesc == "Delta" | subpgmdesc == "Refinance",
+                              "Other", subpgmdesc),
+         
+    # Extract approval year
+    approval_year = year(ApprovalDate),
+         
+    # Encode whether loan term is even 
+    term_divisibility = if_else(TermInMonths %% 2 == 0, "Even", "Odd"),
+    
+    # Encode Charge-off as "1"; otherwise as "0"
+    LoanStatus = if_else(LoanStatus == "CHGOFF", 1, 0)
+    ) %>%
+  
+  # Convert features to factors 
+  dmap_at(c("NAICS", "DeliveryMethod", "approval_year", "LoanStatus"), as.factor) %>%
+  
+  # Drop unneeded features
+  select(-c(ApprovalDate, BorrZip, DeliveryMethod, ChargeOffDate, GrossChargeOffAmount))
+```
+
+#Data Splitting
+
+We randomly partition the data into 70% training and 30% test sets. This
+approach does not implement a time-based split, but rather a random sampling 
+of observations over the entire 1990-2014 window. 
+
+```{r}
+# Split data into train and validation sets 
+percent_in_train <- 0.7
+train_indices <- sample(nrow(df), size = percent_in_train*nrow(df))
+train <- df[train_indices, ]
+test <- df[-train_indices, ]
+```
+
+#Data Preprocessing
+
+Some variables are on different scales; for example, `Gross Approval` 
+varies in dollar amounts from \$30,000  to \$4,000,000, whereas 
+`Term in Months` ranges from 1 to 389. In turn, we center and scale the 
+predictors to apply regularization techniques during the modeling phase. 
+```{r}
+# Define pre-processing steps to apply to training data
+preProcessSteps <- c("center", "scale")
+
+# Apply same pre-processing steps to the test set
+preProcessObject <- preProcess(train, method = preProcessSteps)
+train <- predict(preProcessObject, train)
+test <- predict(preProcessObject, test)
+```
+
+#Feature Selection
+
+We perform feature selection using recursive feature elimination
+with 10-fold cross-validation. This method uses the 
+`rfFuncs` parameter, which uses random forests to remove 
+variables with low variable importance.
+```{r}
+# Set the recursive feature elimination parameters 
+set.seed(1234)
+rfFuncs$summary <- twoClassSummary
+rfe.cntrl <- rfeControl(functions = rfFuncs,
+                      method = "cv",
+                      number = 5,
+                      returnResamp = "final")
+train.cntrl <- trainControl(selectionFunction = "oneSE",
+                            classProbs = TRUE,
+                            summaryFunction = twoClassSummary)
+
+# COMMENTED OUT TO REDUCE RUNTIME 
+# # Perform recursive feature elimination to select variables 
+# rfe.results <- 
+#   rfe(LoanStatus~., 
+#       data = train,
+#       rfeControl = rfe.cntrl,
+#       preProc = preProcessSteps,
+#       metric = "ROC",
+#       trControl = train.cntrl)
+rfe.results <- read_rds("../models/rfe.results.rds")
+```
+
+The following table shows that recursive feature selection 
+chooses `r rfe.results[["results"]]$Variables[which.max(rfe.results[["results"]]$ROC)]`
+variables to include in subsequent model building.
+```{r}
+print(rfe.results)
+```
+
+The procedure selects `r rfe.results[["results"]]$Variables[which.max(rfe.results[["results"]]$ROC)]` 
+variables because AUC is maximized (see plot below):
+```{r}
+ggplot(rfe.results) +
+  labs(x = "Number of Variables",
+       y = "AUC (Cross-Validated)",
+       title = "Recursive Feature Elimination\nNumber of Variables vs. AUC")
+```
+
+The importances of the top 30 selected features are given by:
+```{r, fig.height=8, fig.width=7}
+data_frame(predictor = rownames(varImp(rfe.results)), 
+           var_imp = varImp(rfe.results)$Overall) %>%
+  slice(1:30) %>%
+  ggplot(mapping = aes(x = reorder(predictor, var_imp), y = var_imp)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(x = "", y = "Variable Importance", 
+       title = "Recursive Feature Elimination Variable Importance")
+```
+
+```{r}
+# Map factor levels back to their respective features 
+(selected_vars <- map(predictors(rfe.results), ~str_match(.x, names(df))) %>% 
+  unlist() %>% 
+  .[!is.na(.)] %>%
+  unique())
+train_selected_vars <- train %>%
+  select(one_of(selected_vars), LoanStatus)
+```
+
+#Model Fitting 
+
+Using these selected features, we fit models predicting the binary outcome
+of whether a small busniess defaults on a loan. To tune hyperparameters,
+we use 10-fold cross-validation with the one standard-erro rule, which selects
+parameters that obtain the highest cross-validated AUC within one standard error
+of the maximum. 
+```{r}
+# Define cross-validation controls 
+cvCtrl <- trainControl(method = "cv", 
+                       number = 10,
+                       summaryFunction = twoClassSummary, 
+                       selectionFunction = "oneSE",
+                       classProbs = TRUE)
+```
+
+##Elastic Net
+```{r, eval=FALSE}
+# Fit penalized logistic regression model (elastic net)
+elastic.fit <- train(LoanStatus ~ .,
+                   data = train_selected_vars,
+                   preProc = preProcessSteps,
+                   method = "glmnet",
+                   family = "binomial",
+                   trControl = cvCtrl,
+                   metric = "ROC")
+```
+
+##Random Forest
+
+
+```{r, echo = FALSE}
+# # Selection by Filter
+# # Set the selection by filter parameters 
+# set.seed(1234)
+# rfFuncs$summary <- twoClassSummary
+# sbf.cntrl <- sbfControl(functions = rfSBF,
+#                       method = "cv",
+#                       number = 5,
+#                       returnResamp = "final")
+# train.cntrl <- trainControl(selectionFunction = "oneSE",
+#                             classProbs = TRUE,
+#                             summaryFunction = twoClassSummary)
+# 
+# # Perform selection by filter to select variables 
+# sbf.results <- 
+#   sbf(LoanStatus~., 
+#       data = train,
+#       sbfControl = sbf.cntrl, 
+#       preProc = preProcessSteps,
+#       metric = "ROC",
+#       trControl = train.cntrl)
+```
