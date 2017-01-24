@@ -170,7 +170,8 @@ data_frame(predictor = rownames(varImp(rfe.results)),
   ggplot(mapping = aes(x = reorder(predictor, var_imp), y = var_imp)) +
   geom_bar(stat = "identity") +
   coord_flip() +
-  labs(x = "", y = "Variable Importance", 
+  labs(x = "", 
+       y = "Variable Importance", 
        title = "Recursive Feature Elimination Variable Importance")
 ```
 
