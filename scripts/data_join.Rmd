@@ -33,16 +33,18 @@ unemploy_file_in <- "../data/unemployment_rates.csv"
 df <- 
   # Read in loan data 
   read_csv(loans_file_in) %>%
+  # Rename variable
   plyr::rename(replace = c("2DigitNAICS" = "NAICS")) %>%
+  # Convert year to date-time object
   mutate(ApprovalDate = mdy(ApprovalDate)) %>%
   
-  # Join S&P 500 data 
+  # Join S&P 500 data (FINISH)
   left_join(read_csv(sp500_file_in), by = c()) %>%
   
-  # Join State GDP data 
+  # Join State GDP data (FINISH)
   left_join(read_csv(gdp_file_in), by = c()) %>%
   
-  # Join unemplyment rate data 
+  # Join unemplyment rate data (FINISH)
   left_join(read_csv(unemploy_file_in), by = c())
 ```
 
