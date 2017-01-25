@@ -19,6 +19,8 @@ unemploy_file_in <- "../data/unemployment_rates.csv"
 cpi_file_in <- "../data/cpi.csv"
 crime_file_in <- "../data/crime_rate.csv"
 volatility_file_in <- "../data/volatility_markets.csv"
+
+out_file <- "../data/merged.csv"
 ```
 
 ``` r
@@ -80,5 +82,5 @@ df <-
   select(-c(month, year))
 
 # Write data frame to file
-write_csv(df, "../data/final_merged.csv")
+write_csv(df, out_file)
 ```
