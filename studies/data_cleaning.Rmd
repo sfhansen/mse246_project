@@ -3,8 +3,9 @@ title: "MSE 246 Data Cleaning"
 author: "Samuel Hansen"
 date: "1/21/2017"
 output: 
-  github_document:
+  html_document:
     toc: true
+    keep_md: true 
 ---
 
 ```{r setup, include=FALSE}
@@ -35,6 +36,8 @@ library(knitr)
 library(lubridate)
 library(caret)
 library(stringr)
+library(plotROC)
+library(pROC)
 library(tidyverse)
 file_in <- "../data/SBA_Loan_data_2.csv"
 
@@ -248,6 +251,81 @@ The random forestmodel was selected with the following hyperparameters:
 rf.fit <- read_rds("../models/rf.fit.rds")
 rf.fit
 plot(rf.fit)
+```
+
+#Model Evaluation 
+
+##ROC Plots 
+
+```{r}
+# Evaluate performance of trained models on test set 
+testResults <- data.frame(true_value = test$LoanStatus)
+testResults$randomForest <- predict(rf.fit, test, type = "prob")[,"default"]
+testResults$elasticNet <- predict(elastic.fit, test, type = "prob")[,"default"]
+
+# Compute AUC by model type 
+aucs <-
+  data_frame(randomForest = pROC::auc(roc(predictor = testResults$randomForest,
+                       response = testResults$true_value)),
+             elasticNet = pROC::auc(roc(predictor = testResults$elasticNet,
+                       response = testResults$true_value))) %>%
+  gather(method, auc_value, randomForest:elasticNet) %>%
+  mutate(auc_label = paste("AUC =", round(auc_value,3)))
+
+# Gather results in long format 
+testResults <- 
+  testResults %>%
+  gather(method, predicted_prob, randomForest:elasticNet) %>%
+  mutate(true_value = ifelse(true_value == "default", 1, 0))
+```
+
+```{r}
+model_labels <- c("randomForest" = "Random Forest",
+                  "elasticNet" = "Elastic Net")
+
+# Plot ROC curves by model type 
+testResults %>%
+  ggplot(mapping = aes(d = true_value, m = predicted_prob)) +
+  geom_roc(n.cuts = 5, labelsize = 2, labelround = 3) +
+  annotate(geom = "segment", x = 0, xend = 1, y = 0, yend = 1,
+           color = "black", linetype = 2) +
+  labs(x = "False Positive Fraction", y = "True Positive Fraction",
+       title = "ROC Curves by Model Type") +
+  facet_wrap(~method, labeller = labeller(method = model_labels)) +
+  geom_text(data = aucs, aes(x = 0.75, y = 0.5, label = auc_label), 
+                    colour = "black", inherit.aes = FALSE, parse = FALSE)
+```
+
+##Calibration Plots 
+
+```{r, fig.width=9, fig.height=6}
+# Make calibration plots, facetted by model type
+pred_prob_midpoints <- data_frame(midpoint = rep(seq(0.025, 0.975, 0.05), each = 2))
+testResults %>%
+  mutate(prob_bin = cut_width(predicted_prob,width = 0.05)) %>%
+  group_by(prob_bin, method) %>%
+  summarise(prob_default = mean(true_value, na.rm = TRUE),
+            n = n()) %>%
+  bind_cols(., pred_prob_midpoints) %>%
+  ungroup() %>%
+  ggplot(mapping = aes(x = midpoint, y = prob_default, label = n)) +
+  geom_line() +
+  geom_point(mapping = aes(size = n)) +
+  geom_text_repel(mapping = aes(color = "red")) +
+  annotate(geom = "segment", x = 0, xend = 1, y = 0, yend = 1,
+           color = "black", linetype = 2) +
+  scale_x_continuous(labels = scales::percent,
+                     breaks = seq(0, 1, by = 0.1)) +
+  scale_y_continuous(labels = scales::percent,
+                     breaks = seq(0, 1, by = 0.1)) +
+  scale_colour_discrete(guide = FALSE) +
+  scale_size(name = "Number of\nPredictions",
+             labels = scales::comma) +
+  labs(x = "Predicted Default Probability (Bin Midpoint)",
+       y = "Actual Default Probability",
+       title = "Calibration Plot: Predicted vs. Actual Default Probability") +
+  # facet_wrap(~method)
+  facet_wrap(~method, labeller = labeller(method = model_labels))
 ```
 
 ```{r, echo = FALSE}
