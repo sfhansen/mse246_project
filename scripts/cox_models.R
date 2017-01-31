@@ -1,6 +1,7 @@
 require(data.table)
 require(glmnet)
 require(survival)
+require(ggplot2)
 
 merged_data_in = '../data/merged.csv'
 dt = fread(merged_data_in)
@@ -29,7 +30,7 @@ bump_to_num = c('ThirdPartyDollars','gdp',
 dt[, (bump_to_num) := lapply(.SD, as.numeric), .SDcols = bump_to_num]
 
 ##make these character so that they will be correctly interp. as categorical
-bump_to_char = c('NAICS')
+bump_to_char = c('NAICS','FiscalYear')
 dt[, (bump_to_char) := lapply(.SD, as.character), .SDcols = bump_to_char]
 
 ##Default indicator to use in the cox regression
@@ -45,7 +46,7 @@ censor_obs_idx = which(is.na(time_to_default))
 time_to_default[censor_obs_idx] = S - dt[censor_obs_idx, ApprovalDate]
 
 ##I don't think these variables are useful (anymore, or ever)
-remove = c('ChargeOffDate','BorrZip','FiscalYear','ProjectState','BorrState')
+remove = c('ChargeOffDate','BorrZip','ProjectState')
 dt[, (remove) := NULL] 
 
 ##Check again that types are correct:
@@ -57,6 +58,8 @@ print('----------integer----------')
 print(names(which(sapply(dt,class)=='integer')))
 print('----------logical----------')
 print(names(which(sapply(dt,class)=='logical')))
+
+print('done with preprocessing...')
 ##########################################################
 ##Additional Processing Functions
 
@@ -111,13 +114,16 @@ addPolynomialFeatures <- function(dt, n){
     }
 }
 
+print('standardizing units...')
 standardizeUnits(dt)
 ##Are all 'numeric' cols in (-1,1]?
 ##sapply(dt[, which(sapply(dt,class)=='numeric'), with=F],summary)
-  
+
+print('adding na dummies... will have warnings, its ok...')
 dummifyNAs(dt)
 ##Are there any NAs left? 
 
+print('adding polynomial ftrs...')
 addPolynomialFeatures(dt,5)
 ##Were columns added for the right variables?
 
@@ -127,21 +133,25 @@ addPolynomialFeatures(dt,5)
 ##glmnet doesn't seem to want to automagically convert char to factor to indicator.
 ##So I did that here.
 dt = model.matrix(~.,data=dt)
+print('writing dt to disk...')
 write.csv(dt,'../data/cox_models_data_full.csv')
 
 set.seed(100)
 train_idx = sample(1:nrow(dt),floor(0.7*nrow(dt)),replace=F)
 
-dt_train = dt[train_idx]
+dt_train = dt[train_idx,]
+print('writing dt_train to disk...')
 write.csv(dt_train,'../data/cox_models_data_train.csv')
 
-dt_test = dt[-train_idx]
+dt_test = dt[-train_idx,]
+print('writing dt_test to disk...')
 write.csv(dt_test,'../data/cox_models_data.test.csv')
 
-alpha_seq = seq(0,,1,by=0.1)
-lambda_seq = seq(0.2,0.00001,by=-0.0005)
+alpha_seq = seq(0,1,by=0.1)
+lambda_seq = seq(0.5,0.00001,by=-0.0002)
 
-fitCoxModels <- function(dt,alpha_seq,lambda_seq){
+fitCoxModels <- function(time_to_default,default,
+                         dt,alpha_seq,lambda_seq){
     out_list = list()
     for(alpha in alpha_seq){
         print(paste('fitting model for alpha ',alpha,sep=''))
@@ -156,11 +166,26 @@ fitCoxModels <- function(dt,alpha_seq,lambda_seq){
     return(out_list)
 }
 
-fitted_mods = fitCoxModels(dt_train,alpha_seq,lambda_seq)
+print('fitting...')
+##note to index default, time_to_default by train_idx
+fitted_mods = fitCoxModels(time_to_default[train_idx],default[train_idx],
+                           dt_train,alpha_seq,lambda_seq)
 save(fitted_mods,file='../data/cox_models.RDat')
 
 ##########################################################
 ##Select Best Model, Diagnostics
+##load('../data/cox_models.RDat')
+
+diagnostic <- function(glmnet_obj_list){
+    idx = 1
+    for(obj in glmnet_obj_list){
+        print(names(glmnet_obj_list)[idx])
+        print(length(obj$lambda))
+        print(length(obj$dev.ratio))
+        print(dim(obj$beta))
+        idx = idx + 1
+    }
+}
 
 ##Extracts alpha value from model name, that's where I put that info...
 getAlpha <- function(model_name){
@@ -221,9 +246,8 @@ plotLambdaByDevRatio <- function(glmnet_obj_list,plot_dim){
 
 ##Makes heatmap of lambda vs. alpha vs. dev.ratio
 heatMapDevRatio <- function(glmnet_obj_list,lambda_seq,alpha_seq){
-    require(ggplot2)
     grid <- matrix(NA,nr=1,ncol=3)    
-    colnames(grid) = c('alpha','lambda','dev.ratio')    
+    colnames(grid) = c('alpha','lambda','dev.ratio')
     for(idx in 1:length(glmnet_obj_list)){
         alpha = getAlpha(names(glmnet_obj_list)[idx])
         temp_df = data.frame(alpha=alpha,
@@ -233,12 +257,18 @@ heatMapDevRatio <- function(glmnet_obj_list,lambda_seq,alpha_seq){
     }
     grid = grid[-1,]
     ggplot(grid, aes(lambda, alpha)) +
-        geom_tile(aes(fill = dev.ratio),colour = "white") +
-        scale_fill_gradient(low = "white",high = "steelblue")
+        geom_raster(aes(fill = dev.ratio), interpolate = TRUE)
 }
 
-heatMapDevRatio(fitted_mods,lambda_seq,alpha_seq)
-plotLambdaByDevRatio(fitted_mods,c(5,2))
+diagnostic(fitted_mods)
+
+print('heatmaps...')
+heatMapDevRatio(fitted_mods[6:10],lambda_seq,alpha_seq)
+
+print('plots...')
+plotLambdaByDevRatio(fitted_mods[6:11],c(3,2))
+
+print('select best...')
 best_mod = selectBestCox(fitted_mods)
 
 ##Another approach is to use one year ahead predict on test set with ROC
