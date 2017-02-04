@@ -32,15 +32,24 @@ dt[, (bump_to_char) := lapply(.SD, as.character), .SDcols = bump_to_char]
 
 ##Default indicator to use in the cox regression
 default = dt[, ifelse(is.na(ChargeOffDate),0,1)]
+default_idx <- which(default == 1)
 
 ##days, life of the loan
 time_to_default = dt[, ChargeOffDate - ApprovalDate]
-
+View(as.data.frame(dt))
 ##The 'follow up time' is to take the place of entries that did not default in
 ##time_to_default. So in this case, that would be the end of the window.
 S = as.numeric(as.Date('2/01/2014','%m/%d/%Y')) #right censor date, window end + 1 day
 censor_obs_idx = which(is.na(time_to_default))
 time_to_default[censor_obs_idx] = S - dt[censor_obs_idx, ApprovalDate]
+
+
+#need to normalize chargeoff??
+severity <- dt[, GrossApproval] - dt[, GrossChargeOffAmount]
+mean_chargeoff <- mean(dt[which(dt[, GrossChargeOffAmount]>0), GrossChargeOffAmount])
+mean_loan_size <- mean(dt[which(dt[, GrossApproval]>0), GrossApproval])
+
+#head(which(severity <0 ))
 
 ##I don't think these variables are useful (anymore, or ever)
 remove = c('ChargeOffDate','BorrZip','ProjectState')
@@ -59,7 +68,7 @@ print(names(which(sapply(dt,class)=='logical')))
 
 #putting in dataframe format
 dt2 = as.data.frame(dt)
-View(data)
+
 print('done with preprocessing...')
 ##########################################################
 length(time_to_default)
@@ -74,9 +83,18 @@ summary(y)
 # status <- as.numeric(censtimes > lifetimes)
 
 #Non parametric estimation of distirbution of default
-y1 <-survfit(Surv(time_to_default, default)~1) 
+y1 <- survfit(Surv(time_to_default, default)~1) 
 plot(y1, xlab = "Time", ylab = "Surv proba")
 
 #Parametric estimation of distirbution of default
-y3 <- survreg(Surv(time_to_default, default)~1)
+y3 <- survreg(Surv(time_to_default, default)~as.data.frame(dt))
+
 pred <- predict(y3, type="quantile", p=c(0.1, 0.5, 0.9) )
+
+
+#TODO: 
+#estimate default probability --> theta
+#generate bernoulli simulation with different theta params
+#generate 
+
+
