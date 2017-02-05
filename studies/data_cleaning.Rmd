@@ -108,7 +108,8 @@ varies in dollar amounts from \$30,000  to \$4,000,000, whereas
 predictors to apply regularization techniques during the modeling phase. 
 ```{r}
 # Define pre-processing steps to apply to training data
-preProcessSteps <- c("center", "scale")
+# preProcessSteps <- c("center", "scale") "pca"? 
+preProcessSteps <- c("center", "scale", "nzv", "knnImpute")
 
 # Apply same pre-processing steps to the test set
 preProcessObject <- preProcess(train, method = preProcessSteps)
@@ -279,7 +280,7 @@ testResults <-
   mutate(true_value = ifelse(true_value == "default", 1, 0))
 ```
 
-```{r}
+```{r, fig.width=9, fig.height=6}
 model_labels <- c("randomForest" = "Random Forest",
                   "elasticNet" = "Elastic Net")
 
@@ -324,7 +325,6 @@ testResults %>%
   labs(x = "Predicted Default Probability (Bin Midpoint)",
        y = "Actual Default Probability",
        title = "Calibration Plot: Predicted vs. Actual Default Probability") +
-  # facet_wrap(~method)
   facet_wrap(~method, labeller = labeller(method = model_labels))
 ```
 
@@ -352,3 +352,4 @@ testResults %>%
 #       metric = "ROC",
 #       trControl = train.cntrl)
 ```
+
