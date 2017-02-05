@@ -95,5 +95,5 @@ df <-
   select(-c(month, year))
 
 # Write data frame to file
-write_csv(df, out_file)
+# write_csv(df, out_file)
 ```
