@@ -81,9 +81,16 @@ df <-
   #             select(-date),
   #           by = c("year", "month")) %>%
   
-  # Remove approval year and month as variables 
-  select(-c(month, year))
+  # Remove unnecessary variables 
+  select(-c(month, year, DeliveryMethod, TermByYear)) %>%
+  
+  # Recode NA values 
+  dmap_at(c('SameThirdPartyLendingState', 'ChargeOffDate'), 
+          ~ifelse(.x == 'N/A', NA, .x)) %>%
+  
+  # Change to logical type
+  dmap_at('SameThirdPartyLendingState', as.logical)
 
 # Write data frame to file
-write_csv(df, out_file)
+# write_csv(df, out_file)
 ```
