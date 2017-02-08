@@ -126,6 +126,9 @@ df <-
   # Convert character columns to factors
   dmap_if(is.character, as.factor) %>%
   
+  # Convert Fiscal Year from int to factor
+  dmap_at("FiscalYear", as.factor) %>%
+  
   # Remove remaining NAs 
   drop_na(-ChargeOffDate)
 

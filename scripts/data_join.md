@@ -31,7 +31,7 @@ volatility_file_in <- "../data/volatility_markets.csv"
 # Initialize output files 
 out_file <- "../data/merged.rds"
 train_out_file <- "../data/train.rds"
-test_out_file <- "../data/train.rds"
+test_out_file <- "../data/test.rds"
 ```
 
 ``` r
@@ -119,6 +119,9 @@ df <-
   
   # Convert character columns to factors
   dmap_if(is.character, as.factor) %>%
+  
+  # Convert Fiscal Year from int to factor
+  dmap_at("FiscalYear", as.factor) %>%
   
   # Remove remaining NAs 
   drop_na(-ChargeOffDate)
