@@ -82,14 +82,14 @@ df <-
               gather(BorrState, crime_rate, AL:WY),
             by = c("BorrState", "year")) %>%
   
-  #  # Join volatility market data (file needs to be cleaned)
-  # left_join(read_csv(volatility_file_in) %>%
-  #             plyr::rename(replace = c("Date" = "date")) %>%
-  #             mutate(date = as.yearmon(date, format = "%b-%y"),
-  #                    month = month(date),
-  #                    year = year(date)) %>%
-  #             select(-date),
-  #           by = c("year", "month")) %>%
+   # Join volatility market data 
+  left_join(read_csv(volatility_file_in) %>%
+              plyr::rename(replace = c("Date" = "date")) %>%
+              mutate(date = mdy(date),
+                     month = month(date),
+                     year = year(date)) %>%
+              select(-date),
+            by = c("year", "month")) %>%
   
   # Remove unnecessary variables 
   select(-c(month, year, DeliveryMethod, TermByYear)) %>%
@@ -104,3 +104,10 @@ df <-
 # Write data frame to file
 # write_csv(df, out_file)
 ```
+
+
+keep same: 
+Term in months not scaled 
+include charge off date 
+approval date 
+Gross charge off amount 
