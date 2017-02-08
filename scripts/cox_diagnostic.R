@@ -1,27 +1,30 @@
 require(data.table)
 require(ggplot2)
 require(glmnet)
+require(survival)
 
-load('../data/cox_models.RDat')
-dt_test_in = '../data/cox_models_data.test.csv'
+load('../data/cox_models_glmnet_fitted.RDat')
 
-alpha_seq = seq(0,1,by=0.1)
-lambda_seq = seq(0.5,0.00001,by=-0.0002)
-
-dt_test = fread(dt_test_in)
 ##########################################################
-##Select Best Model, Diagnostics
+##Functions to plot dev.ratio by alpha and lambda
 
-diagnostic <- function(glmnet_obj_list){
-    idx = 1
-    for(obj in glmnet_obj_list){
-        print(names(glmnet_obj_list)[idx])
-        print(length(obj$lambda))
-        print(length(obj$dev.ratio))
-        print(dim(obj$beta))
-        idx = idx + 1
+heatMapDevRatio <- function(glmnet_obj_list,lambda_seq,alpha_seq){
+    grid <- matrix(NA,nr=1,ncol=3)    
+    colnames(grid) = c('alpha','lambda','dev.ratio')
+    for(idx in 1:length(glmnet_obj_list)){
+        alpha = getAlpha(names(glmnet_obj_list)[idx])
+        temp_df = data.frame(alpha=alpha,
+                             lambda=lambda_seq,
+                             dev.ratio=glmnet_obj_list[[idx]]$dev.ratio)
+        grid = rbind(grid,temp_df)
     }
+    grid = grid[-1,]
+    ggplot(grid, aes(lambda, alpha)) +
+        geom_raster(aes(fill = dev.ratio), interpolate = TRUE)
 }
+
+##########################################################
+##Functions to extract info from a list of glmnet model outputs
 
 ##Extracts alpha value from model name, that's where I put that info...
 getAlpha <- function(name){
@@ -66,54 +69,58 @@ selectBestCox <- function(glmnet_obj_list){
     return(glmnet_obj_list[[max_idx]])
 }
 
-#Makes line plots of lambda vs dev.ratio for each alpha
-plotLambdaByDevRatio <- function(glmnet_obj_list,plot_dim){
-    list_names = names(glmnet_obj_list)
-    par(mfrow = plot_dim)
-    idx = 1
-    for(obj in glmnet_obj_list){
-        with(obj,
-             plot(lambda,dev.ratio,type='l',lwd=3,
-                  main=list_names[idx],ylim=c(0,.35))
-             )
-        idx = idx + 1
-    }
+##########################################################
+##Fits a new model with Survival package based on best model
+##from glmnet output. This is important in order to estimate
+##survival curve.
+
+fitSurvivalCox <- function(best_glmnet_mod, time_to_default,
+                           default, dt_train){
+    
+    ##get column names of vars that are nonzero in glmnet mod
+    l_idx = which(max(best_glm_mod$dev.ratio) == best_glm_mod$dev.ratio)
+    coefficients = best_glm_mod$beta[,l_idx]
+    non_zero_idx = which(coefficients>0)
+    var_names = rownames(best_glm_mod$beta)[non_zero_idx]
+
+    ##select data columns that correspond to non-zero coeffs
+    dt_train_new = dt_train[,var_names,with=F]
+
+    
+    new_mod = coxph(Surv(time_to_default,default)~.,
+                    data=dt_train_new,
+                    iter=0,
+                    init=coefficients[non_zero_idx])
+    
+    return(new_mod)
 }
 
-##Makes heatmap of lambda vs. alpha vs. dev.ratio
-heatMapDevRatio <- function(glmnet_obj_list,lambda_seq,alpha_seq){
-    grid <- matrix(NA,nr=1,ncol=3)    
-    colnames(grid) = c('alpha','lambda','dev.ratio')
-    for(idx in 1:length(glmnet_obj_list)){
-        alpha = getAlpha(names(glmnet_obj_list)[idx])
-        temp_df = data.frame(alpha=alpha,
-                             lambda=lambda_seq,
-                             dev.ratio=glmnet_obj_list[[idx]]$dev.ratio)
-        grid = rbind(grid,temp_df)
-    }
-    grid = grid[-1,]
-    ggplot(grid, aes(lambda, alpha)) +
-        geom_raster(aes(fill = dev.ratio), interpolate = TRUE)
-}
-
-diagnostic(fitted_mods)
+##########################################################
+##Applying these functions
 
 print('heatmaps...')
-png('../studies/cox_models_heatmap.png')
-heatMapDevRatio(fitted_mods[2:10],lambda_seq,alpha_seq)
+png('../studies/cox_models_heatmap_10yr.png')
+heatMapDevRatio(fitted_mods_10yr[2:10],lambda_seq,alpha_seq)
 dev.off()
 
-print('plots...')
-png('../studies/cox_models_linegraphs.png')
-plotLambdaByDevRatio(fitted_mods[2:11],c(2,5))
+png('../studies/cox_models_heatmap_20yr.png')
+heatMapDevRatio(fitted_mods_20yr[2:10],lambda_seq,alpha_seq)
 dev.off()
 
 print('select best...')
-best_mod = selectBestCox(fitted_mods)
+best_mod_10yr = selectBestCox(fitted_mods_10yr)
+best_mod_20yr = selectBestCox(fitted_mods_20yr)
 
-##########################################################
-##Make Predictions
+cox_fit_10yr = fitSurvivalCox(best_mod_10yr,
+                              time_to_default_10yr[train_idx_10yr],
+                              default_10yr[train_idx_10yr],
+                              dt_train_10yr)
 
-out = predict(best_mod,newx=as.matrix(dt_test[1:10,]))
+cox_fit_20yr = fitSurvivalCox(best_mod_20yr,
+                              time_to_default_20yr[train_idx_20yr],
+                              default_20yr[train_idx_20yr],
+                              dt_train_20yr)
 
-dim(out) #10 x 2500
+surv_curve_10yr = survfit(cox_fit_10yr,newdata = dt_train_10yr)
+surv_curve_20yr = survfit(cox_fit_20yr,newdata = dt_train_20yr)
+
