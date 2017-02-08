@@ -128,4 +128,9 @@ cox_fit_20yr = fitSurvivalCox(best_mod_20yr,
 surv_curve_10yr = survfit(cox_fit_10yr)
 surv_curve_20yr = survfit(cox_fit_20yr)
 
+rm(list = setdiff(ls(),c('cox_fit_10yr',
+                         'cox_fit_20yr',
+                         'surv_curve_10yr',
+                         'surv_curve_20yr')))
+
 save.image(file='../data/cox_models_survival_curves.RData')
