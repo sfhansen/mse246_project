@@ -43,5 +43,5 @@ fitted_mods_20yr = fitCoxModels(
     alpha_seq,
     lambda_seq)
 
-save.image(file='../data/cox_models_glmnet_fitted.RDat')
+save.image(file='../data/cox_models_glmnet_fitted.RData')
 
