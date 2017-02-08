@@ -3,7 +3,11 @@ require(ggplot2)
 require(glmnet)
 require(survival)
 
-load('../data/cox_models_glmnet_fitted.RDat')
+load('../data/cox_models_glmnet_fitted.RData')
+dt_10yr_test = data.table(dt_10yr_test)
+dt_20yr_test = data.table(dt_20yr_test)
+dt_10yr_train = data.table(dt_10yr_train)
+dt_20yr_train = data.table(dt_20yr_train)
 
 ##########################################################
 ##Functions to plot dev.ratio by alpha and lambda
@@ -74,7 +78,7 @@ selectBestCox <- function(glmnet_obj_list){
 ##from glmnet output. This is important in order to estimate
 ##survival curve.
 
-fitSurvivalCox <- function(best_glmnet_mod, time_to_default,
+fitSurvivalCox <- function(best_glm_mod, time_to_default,
                            default, dt_train){
     
     ##get column names of vars that are nonzero in glmnet mod
@@ -112,15 +116,16 @@ best_mod_10yr = selectBestCox(fitted_mods_10yr)
 best_mod_20yr = selectBestCox(fitted_mods_20yr)
 
 cox_fit_10yr = fitSurvivalCox(best_mod_10yr,
-                              time_to_default_10yr[train_idx_10yr],
-                              default_10yr[train_idx_10yr],
-                              dt_train_10yr)
+                              time_to_default_10yr[train_10yr_idx],
+                              default_10yr[train_10yr_idx],
+                              dt_10yr_train)
 
 cox_fit_20yr = fitSurvivalCox(best_mod_20yr,
-                              time_to_default_20yr[train_idx_20yr],
-                              default_20yr[train_idx_20yr],
-                              dt_train_20yr)
+                              time_to_default_20yr[train_20yr_idx],
+                              default_20yr[train_20yr_idx],
+                              dt_20yr_train)
 
-surv_curve_10yr = survfit(cox_fit_10yr,newdata = dt_train_10yr)
-surv_curve_20yr = survfit(cox_fit_20yr,newdata = dt_train_20yr)
+surv_curve_10yr = survfit(cox_fit_10yr)
+surv_curve_20yr = survfit(cox_fit_20yr)
 
+save.image(file='../data/cox_models_survival_curves.RData')
