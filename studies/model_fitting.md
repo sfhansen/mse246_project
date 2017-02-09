@@ -22,7 +22,7 @@ in terms of AUC, sensitivity, and calibration.
 
 
 ```r
-# Initialize libraries and input files 
+# Initialize libraries 
 library(ggrepel)
 library(knitr)
 library(lubridate)
@@ -31,13 +31,14 @@ library(stringr)
 library(plotROC)
 library(pROC)
 library(tidyverse)
-file_in <- "../data/SBA_Loan_data_2.csv"
+
+# Initialize input files 
+train_file_in <- "../data/train.rds"
+test_file_in <- "../data/test.rds"
 
 # Read in data 
-df <- 
-  read_csv(file_in) %>%
-  plyr::rename(replace = c("2DigitNAICS" = "NAICS")) %>%
-  mutate(ApprovalDate = mdy(ApprovalDate))
+train <- read_rds(train_file_in)
+test <- read_rds(test_file_in)
 ```
 
 #Feature Engineering
@@ -45,54 +46,11 @@ df <-
 We engineered the following features from the raw data: 
 
 - `first_zip_digit`: the first digit of the borrower's zip code;
-- `2DigitNAICS`: the first two digits of the NAICS code;
+- `NAICS`: the first two digits of the NAICS code;
 - `subpgmdesc`: condensed infrequent factor levels into "other" category;
-- `approval_year`: extracted year from loan approval datetime object;
-- `term_divisibility`: encodes whether the loan term is divisible by 2. 
+- `approval_year`: extracted year from loan approval datetime object.
 
 
-```r
-df <- 
-  df %>%
-  mutate(
-    # Extract first digit of zip code
-    first_zip_digit = str_sub(BorrZip, end = 1), 
-         
-    # Encode rare subprograms as "Other"
-    subpgmdesc = if_else(subpgmdesc == "Delta" | subpgmdesc == "Refinance",
-                              "Other", subpgmdesc),
-         
-    # Extract approval year
-    approval_year = year(ApprovalDate),
-         
-    # Encode whether loan term is even 
-    term_divisibility = if_else(TermInMonths %% 2 == 0, "Even", "Odd"),
-    
-    # Encode Charge-off as "1"; otherwise as "0"
-    LoanStatus = if_else(LoanStatus == "CHGOFF", "default", "paid")
-    ) %>%
-  
-  # Convert features to factors 
-  dmap_at(c("NAICS", "DeliveryMethod", "approval_year", "LoanStatus"), as.factor) %>%
-  
-  # Drop unneeded features
-  select(-c(ApprovalDate, BorrZip, DeliveryMethod, ChargeOffDate, GrossChargeOffAmount))
-```
-
-#Data Splitting
-
-We randomly partition the data into 70% training and 30% test sets. This
-approach does not implement a time-based split, but rather a random sampling 
-of observations over the entire 1990-2014 window. 
-
-
-```r
-# Split data into train and validation sets 
-percent_in_train <- 0.7
-train_indices <- sample(nrow(df), size = percent_in_train*nrow(df))
-train <- df[train_indices, ]
-test <- df[-train_indices, ]
-```
 
 #Data Preprocessing
 
@@ -101,9 +59,18 @@ varies in dollar amounts from \$30,000  to \$4,000,000, whereas
 `Term in Months` ranges from 1 to 389. In turn, we center and scale the 
 predictors to apply regularization techniques during the modeling phase. 
 
+
+```r
+# Remove unnecesary features for modeling 
+train <- train %>% select(-c(GrossChargeOffAmount, ChargeOffDate))
+test <- test %>% select(-c(GrossChargeOffAmount, ChargeOffDate))
+```
+
+
 ```r
 # Define pre-processing steps to apply to training data
-preProcessSteps <- c("center", "scale")
+# preProcessSteps <- c("center", "scale") "pca"? 
+preProcessSteps <- c("center", "scale", "nzv")
 
 # Apply same pre-processing steps to the test set
 preProcessObject <- preProcess(train, method = preProcessSteps)
@@ -136,10 +103,10 @@ rfe.results <-
       data = train,
       rfeControl = rfe.cntrl,
       preProc = preProcessSteps,
+      tuneLength = 10,
       metric = "ROC",
       trControl = train.cntrl)
 ```
-
 
 
 
@@ -151,24 +118,6 @@ variables to include in subsequent model building.
 print(rfe.results)
 ```
 
-```
-## 
-## Recursive feature selection
-## 
-## Outer resampling method: Cross-Validated (5 fold) 
-## 
-## Resampling performance over subset size:
-## 
-##  Variables    ROC   Sens   Spec    ROCSD   SensSD   SpecSD Selected
-##          4 0.6808 0.9431 0.4091 0.008976 0.001802 0.008720         
-##          8 0.7273 0.9534 0.3621 0.028523 0.009528 0.035838         
-##         16 0.7918 0.9578 0.3653 0.007996 0.002345 0.007991         
-##         60 0.8219 0.9628 0.3607 0.005836 0.002881 0.005959        *
-## 
-## The top 5 variables (out of 60):
-##    approval_year2007, approval_year2006, approval_year2008, first_zip_digit3, GrossApproval
-```
-
 The procedure selects 60 
 variables because AUC is maximized (see plot below):
 
@@ -178,8 +127,6 @@ ggplot(rfe.results) +
        y = "AUC (Cross-Validated)",
        title = "Recursive Feature Elimination\nNumber of Variables vs. AUC")
 ```
-
-![](data_cleaning_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
 
 The importances of the top 30 selected features are given by:
 
@@ -195,33 +142,16 @@ data_frame(predictor = rownames(varImp(rfe.results)),
        title = "Recursive Feature Elimination Variable Importance")
 ```
 
-![](data_cleaning_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
-
 
 ```r
 # Map factor levels back to their respective features 
-(selected_vars <- map(predictors(rfe.results), ~str_match(.x, names(df))) %>% 
+(selected_vars <- map(predictors(rfe.results), ~str_match(.x, names(train))) %>% 
   unlist() %>% 
   .[!is.na(.)] %>%
   unique())
-```
-
-```
-##  [1] "approval_year"              "first_zip_digit"           
-##  [3] "GrossApproval"              "NAICS"                     
-##  [5] "ThirdPartyDollars"          "ThirdPartyLender"          
-##  [7] "TermInMonths"               "BusinessType"              
-##  [9] "SameLendingState"           "subpgmdesc"                
-## [11] "MultiTimeBorrower"          "DummyNAICS"                
-## [13] "SameThirdPartyLendingState" "term_divisibility"
-```
-
-```r
 train_selected_vars <- train %>%
   select(one_of(selected_vars), LoanStatus)
 ```
-
-
 
 #Model Fitting 
 
@@ -251,6 +181,7 @@ elastic.fit <- train(LoanStatus ~ .,
                    data = train_selected_vars,
                    preProc = preProcessSteps,
                    method = "glmnet",
+                   tuneLength = 10,
                    family = "binomial",
                    trControl = cvCtrl,
                    metric = "ROC")
@@ -258,35 +189,6 @@ elastic.fit <- train(LoanStatus ~ .,
 
 The elastic net model was selected with the following hyperparameters:
 
-```
-## glmnet 
-## 
-## 38364 samples
-##    14 predictor
-##     2 classes: 'default', 'paid' 
-## 
-## Pre-processing: centered (60), scaled (60) 
-## Resampling: Cross-Validated (10 fold) 
-## Summary of sample sizes: 34527, 34528, 34527, 34527, 34528, 34528, ... 
-## Resampling results across tuning parameters:
-## 
-##   alpha  lambda        ROC        Sens        Spec     
-##   0.10   0.0002841083  0.8342497  0.36266848  0.9554863
-##   0.10   0.0028410831  0.8338825  0.35821342  0.9564838
-##   0.10   0.0284108311  0.8293940  0.27944012  0.9701060
-##   0.55   0.0002841083  0.8342606  0.36298695  0.9554863
-##   0.55   0.0028410831  0.8330921  0.35391659  0.9571072
-##   0.55   0.0284108311  0.8154765  0.19828360  0.9791771
-##   1.00   0.0002841083  0.8342559  0.36298720  0.9555175
-##   1.00   0.0028410831  0.8320455  0.34659428  0.9579177
-##   1.00   0.0284108311  0.7933869  0.07606301  0.9941085
-## 
-## ROC was used to select the optimal model using  the one SE rule.
-## The final values used for the model were alpha = 0.1 and lambda
-##  = 0.002841083.
-```
-
-![](data_cleaning_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
 
 ##Random Forest
 
@@ -298,38 +200,94 @@ rf.fit <- train(LoanStatus ~ .,
                    data = train_selected_vars,
                    preProc = preProcessSteps,
                    method = "rf",
+                   tuneLength = 10,
                    trControl = cvCtrl,
                    metric = "ROC")
 ```
 
 The random forestmodel was selected with the following hyperparameters:
 
-```
-## Random Forest 
-## 
-## 38364 samples
-##    14 predictor
-##     2 classes: 'default', 'paid' 
-## 
-## Pre-processing: centered (60), scaled (60) 
-## Resampling: Cross-Validated (10 fold) 
-## Summary of sample sizes: 34527, 34528, 34528, 34528, 34528, 34528, ... 
-## Resampling results across tuning parameters:
-## 
-##   mtry  ROC        Sens        Spec     
-##    2    0.7992008  0.02211806  0.9990960
-##   31    0.8051484  0.36728656  0.9415835
-##   60    0.7962180  0.37317373  0.9321696
-## 
-## ROC was used to select the optimal model using  the one SE rule.
-## The final value used for the model was mtry = 31.
-```
-
-![](data_cleaning_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
 
 #Model Evaluation 
 
-##ROC Plots 
+##In-Sample Evaluation 
+
+###Training AUC and Sensitivity of Best Models 
+
+The following plot compares averaged **training** area under the ROC curve 
+and sensitivity across the model types with optimized parameters.
+
+
+```r
+# Evaluate performance of each model on training data
+bind_rows(getTrainPerf(elastic.fit), 
+          getTrainPerf(rf.fit)) %>% 
+  as_data_frame() %>%
+  mutate(method = recode(method, 
+                         "glmnet" = "Elastic Net", "rf" = "Random Forest")) %>%
+  ggplot(mapping = aes(x = TrainSens, y = TrainROC, label = method)) +
+  geom_point() +
+  geom_text_repel() +
+  labs(x = "Train Sensitivity", y = "Train AUC", 
+       title = "Training Sensitivity vs. AUC by Model Type")
+```
+
+###Distribution of Resampled Training AUC, Sensitivity, and Specificity 
+
+To examine the spread of **training** area under the ROC curve,
+sensitivity, and specificity across model types, we leverage the resampled
+data generated during the cross-valiation of modeling fitting to plot 
+their respective distributions.  
+
+
+```r
+# Generate resamples from data 
+resamps <- resamples(list(Elastic_Net = elastic.fit,
+                          Random_Forest = rf.fit))
+
+# Generate boxplots 
+metric_labs = c("ROC" = "AUC", "Sens" = "Sensitivity", "Spec" = "Specificity")
+resamps$values %>%
+  gather(method, value, `Elastic_Net~ROC`:`Random_Forest~Spec`) %>%
+  separate(method, c("method", "metric"), sep = "~", remove = TRUE) %>%
+  ggplot(mapping = aes(x = method, y = value)) +
+  geom_boxplot() +
+  facet_wrap(~metric, scales = "free_y", 
+             labeller = labeller(metric = metric_labs)) +
+  labs(x = "Model Type", y = "Metric Value", 
+       title = "Spread of Training AUC, Sensitivity, and Specificity")
+```
+
+###Training ROC Curves 
+
+Lastly, we can examine the training ROC curves by model type. 
+
+
+```r
+# Evaluate performance of trained models on training set 
+trainResults <- data.frame(true_value = train$LoanStatus)
+trainResults$randomForest <- predict(rf.fit, train, type = "prob")[,"default"]
+trainResults$elasticNet <- predict(elastic.fit, train, type = "prob")[,"default"]
+
+# Compute AUC by model type 
+aucs <-
+  data_frame(randomForest = pROC::auc(roc(predictor = trainResults$randomForest,
+                       response = trainResults$true_value)),
+             elasticNet = pROC::auc(roc(predictor = trainResults$elasticNet,
+                       response = trainResults$true_value))) %>%
+  gather(method, auc_value, randomForest:elasticNet) %>%
+  mutate(auc_label = paste("AUC =", round(auc_value,3)))
+
+# Gather results in long format 
+trainResults <- 
+  trainResults %>%
+  gather(method, predicted_prob, randomForest:elasticNet) %>%
+  mutate(true_value = ifelse(true_value == "default", 1, 0))
+```
+
+##Out-of-Sample Evaluation 
+
+###Test ROC Curves 
 
 
 ```r
@@ -356,10 +314,9 @@ testResults <-
 
 
 ```r
+# Plot ROC curves by model type 
 model_labels <- c("randomForest" = "Random Forest",
                   "elasticNet" = "Elastic Net")
-
-# Plot ROC curves by model type 
 testResults %>%
   ggplot(mapping = aes(d = true_value, m = predicted_prob)) +
   geom_roc(n.cuts = 5, labelsize = 2, labelround = 3) +
@@ -372,9 +329,11 @@ testResults %>%
                     colour = "black", inherit.aes = FALSE, parse = FALSE)
 ```
 
-![](data_cleaning_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
+###Test Calibration Plots
 
-##Calibration Plots 
+The following calibration plots depict the extent to which our models' 
+predicted probabilities of default align with the actual probabilities of
+default. 
 
 
 ```r
@@ -403,10 +362,8 @@ testResults %>%
   labs(x = "Predicted Default Probability (Bin Midpoint)",
        y = "Actual Default Probability",
        title = "Calibration Plot: Predicted vs. Actual Default Probability") +
-  # facet_wrap(~method)
   facet_wrap(~method, labeller = labeller(method = model_labels))
 ```
 
-![](data_cleaning_files/figure-html/unnamed-chunk-19-1.png)<!-- -->
 
 

@@ -29,7 +29,7 @@ forests.
 Lastly, we evaluate the performance of these models on the held-out test set
 in terms of AUC, sensitivity, and calibration. 
 
-```{r}
+```{r, eval = TRUE}
 # Initialize libraries 
 library(ggrepel)
 library(knitr)
@@ -56,7 +56,9 @@ We engineered the following features from the raw data:
 - `first_zip_digit`: the first digit of the borrower's zip code;
 - `NAICS`: the first two digits of the NAICS code;
 - `subpgmdesc`: condensed infrequent factor levels into "other" category;
-- `approval_year`: extracted year from loan approval datetime object;
+- `approval_year`: extracted year from loan approval datetime object.
+
+
 
 #Data Preprocessing
 
@@ -64,10 +66,17 @@ Some variables are on different scales; for example, `Gross Approval`
 varies in dollar amounts from \$30,000  to \$4,000,000, whereas 
 `Term in Months` ranges from 1 to 389. In turn, we center and scale the 
 predictors to apply regularization techniques during the modeling phase. 
+
+```{r}
+# Remove unnecesary features for modeling 
+train <- train %>% select(-c(GrossChargeOffAmount, ChargeOffDate))
+test <- test %>% select(-c(GrossChargeOffAmount, ChargeOffDate))
+```
+
 ```{r}
 # Define pre-processing steps to apply to training data
 # preProcessSteps <- c("center", "scale") "pca"? 
-preProcessSteps <- c("center", "scale", "nzv", "knnImpute")
+preProcessSteps <- c("center", "scale", "nzv")
 
 # Apply same pre-processing steps to the test set
 preProcessObject <- preProcess(train, method = preProcessSteps)
@@ -99,14 +108,14 @@ rfe.results <-
       data = train,
       rfeControl = rfe.cntrl,
       preProc = preProcessSteps,
+      tuneLength = 10,
       metric = "ROC",
       trControl = train.cntrl)
 ```
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, eval=TRUE}
 rfe.results <- read_rds("../models/rfe.results.rds")
 ```
-
 
 The following table shows that recursive feature selection 
 chooses `r rfe.results[["results"]]$Variables[which.max(rfe.results[["results"]]$ROC)]`
@@ -139,19 +148,12 @@ data_frame(predictor = rownames(varImp(rfe.results)),
 
 ```{r}
 # Map factor levels back to their respective features 
-(selected_vars <- map(predictors(rfe.results), ~str_match(.x, names(df))) %>% 
+(selected_vars <- map(predictors(rfe.results), ~str_match(.x, names(train))) %>% 
   unlist() %>% 
   .[!is.na(.)] %>%
   unique())
 train_selected_vars <- train %>%
   select(one_of(selected_vars), LoanStatus)
-```
-
-```{r, echo = FALSE}
-train_selected_vars <-
-  train_selected_vars %>%
-  mutate(LoanStatus = if_else(LoanStatus == 1, "default", "paid")) %>%
-  dmap_at("LoanStatus", factor)
 ```
 
 #Model Fitting 
@@ -180,6 +182,7 @@ elastic.fit <- train(LoanStatus ~ .,
                    data = train_selected_vars,
                    preProc = preProcessSteps,
                    method = "glmnet",
+                   tuneLength = 10,
                    family = "binomial",
                    trControl = cvCtrl,
                    metric = "ROC")
@@ -201,6 +204,7 @@ rf.fit <- train(LoanStatus ~ .,
                    data = train_selected_vars,
                    preProc = preProcessSteps,
                    method = "rf",
+                   tuneLength = 10,
                    trControl = cvCtrl,
                    metric = "ROC")
 ```
@@ -214,7 +218,82 @@ plot(rf.fit)
 
 #Model Evaluation 
 
-##ROC Plots 
+##In-Sample Evaluation 
+
+###Training AUC and Sensitivity of Best Models 
+
+The following plot compares averaged **training** area under the ROC curve 
+and sensitivity across the model types with optimized parameters.
+
+```{r}
+# Evaluate performance of each model on training data
+bind_rows(getTrainPerf(elastic.fit), 
+          getTrainPerf(rf.fit)) %>% 
+  as_data_frame() %>%
+  mutate(method = recode(method, 
+                         "glmnet" = "Elastic Net", "rf" = "Random Forest")) %>%
+  ggplot(mapping = aes(x = TrainSens, y = TrainROC, label = method)) +
+  geom_point() +
+  geom_text_repel() +
+  labs(x = "Train Sensitivity", y = "Train AUC", 
+       title = "Training Sensitivity vs. AUC by Model Type")
+```
+
+###Distribution of Resampled Training AUC, Sensitivity, and Specificity 
+
+To examine the spread of **training** area under the ROC curve,
+sensitivity, and specificity across model types, we leverage the resampled
+data generated during the cross-valiation of modeling fitting to plot 
+their respective distributions.  
+
+```{r}
+# Generate resamples from data 
+resamps <- resamples(list(Elastic_Net = elastic.fit,
+                          Random_Forest = rf.fit))
+
+# Generate boxplots 
+metric_labs = c("ROC" = "AUC", "Sens" = "Sensitivity", "Spec" = "Specificity")
+resamps$values %>%
+  gather(method, value, `Elastic_Net~ROC`:`Random_Forest~Spec`) %>%
+  separate(method, c("method", "metric"), sep = "~", remove = TRUE) %>%
+  ggplot(mapping = aes(x = method, y = value)) +
+  geom_boxplot() +
+  facet_wrap(~metric, scales = "free_y", 
+             labeller = labeller(metric = metric_labs)) +
+  labs(x = "Model Type", y = "Metric Value", 
+       title = "Spread of Training AUC, Sensitivity, and Specificity")
+
+```
+
+###Training ROC Curves 
+
+Lastly, we can examine the training ROC curves by model type. 
+
+```{r}
+# Evaluate performance of trained models on training set 
+trainResults <- data.frame(true_value = train$LoanStatus)
+trainResults$randomForest <- predict(rf.fit, train, type = "prob")[,"default"]
+trainResults$elasticNet <- predict(elastic.fit, train, type = "prob")[,"default"]
+
+# Compute AUC by model type 
+aucs <-
+  data_frame(randomForest = pROC::auc(roc(predictor = trainResults$randomForest,
+                       response = trainResults$true_value)),
+             elasticNet = pROC::auc(roc(predictor = trainResults$elasticNet,
+                       response = trainResults$true_value))) %>%
+  gather(method, auc_value, randomForest:elasticNet) %>%
+  mutate(auc_label = paste("AUC =", round(auc_value,3)))
+
+# Gather results in long format 
+trainResults <- 
+  trainResults %>%
+  gather(method, predicted_prob, randomForest:elasticNet) %>%
+  mutate(true_value = ifelse(true_value == "default", 1, 0))
+```
+
+##Out-of-Sample Evaluation 
+
+###Test ROC Curves 
 
 ```{r}
 # Evaluate performance of trained models on test set 
@@ -239,10 +318,9 @@ testResults <-
 ```
 
 ```{r, fig.width=9, fig.height=6}
+# Plot ROC curves by model type 
 model_labels <- c("randomForest" = "Random Forest",
                   "elasticNet" = "Elastic Net")
-
-# Plot ROC curves by model type 
 testResults %>%
   ggplot(mapping = aes(d = true_value, m = predicted_prob)) +
   geom_roc(n.cuts = 5, labelsize = 2, labelround = 3) +
@@ -255,7 +333,11 @@ testResults %>%
                     colour = "black", inherit.aes = FALSE, parse = FALSE)
 ```
 
-##Calibration Plots 
+###Test Calibration Plots
+
+The following calibration plots depict the extent to which our models' 
+predicted probabilities of default align with the actual probabilities of
+default. 
 
 ```{r, fig.width=9, fig.height=6}
 # Make calibration plots, facetted by model type
