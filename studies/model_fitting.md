@@ -1,4 +1,4 @@
-# MSE 246 Data Cleaning
+# MSE 246 Modeling Fitting
 Samuel Hansen  
 1/21/2017  
 

@@ -1,5 +1,5 @@
 ---
-title: "MSE 246 Data Cleaning"
+title: "MSE 246 Modeling Fitting"
 author: "Samuel Hansen"
 date: "1/21/2017"
 output: 
