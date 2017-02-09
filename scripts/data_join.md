@@ -49,6 +49,7 @@ df <-
   
   # Join S&P 500 data 
   left_join(read_csv(sp500_file_in) %>%
+              plyr::rename(replace = c("S&P_Returns" = "S&P Returns")) %>%
               mutate(Date = mdy(Date),
                      month = month(Date),
                      year = year(Date)) %>% 
