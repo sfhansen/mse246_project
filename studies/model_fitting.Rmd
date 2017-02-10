@@ -29,7 +29,7 @@ forests.
 Lastly, we evaluate the performance of these models on the held-out test set
 in terms of AUC, sensitivity, and calibration. 
 
-```{r, eval = TRUE}
+```{r}
 # Initialize libraries 
 library(ggrepel)
 library(knitr)
@@ -57,8 +57,6 @@ We engineered the following features from the raw data:
 - `NAICS`: the first two digits of the NAICS code;
 - `subpgmdesc`: condensed infrequent factor levels into "other" category;
 - `approval_year`: extracted year from loan approval datetime object.
-
-
 
 #Data Preprocessing
 
@@ -90,7 +88,7 @@ We perform feature selection using recursive feature elimination
 with 10-fold cross-validation. This method uses the 
 `rfFuncs` parameter, which uses random forests to remove 
 variables with low variable importance.
-```{r, eval=FALSE}
+```{r}
 # Set the recursive feature elimination parameters 
 set.seed(1234)
 rfFuncs$summary <- twoClassSummary
@@ -108,13 +106,15 @@ rfe.results <-
       data = train,
       rfeControl = rfe.cntrl,
       preProc = preProcessSteps,
-      tuneLength = 10,
+      sizes =  seq(12,132,10),
       metric = "ROC",
       trControl = train.cntrl)
+
+# write_rds(rfe.results, "../models/rfe.results2.rds")
 ```
 
-```{r, echo = FALSE, eval=TRUE}
-rfe.results <- read_rds("../models/rfe.results.rds")
+```{r, echo = FALSE}
+# rfe.results <- read_rds("../models/rfe.results.rds")
 ```
 
 The following table shows that recursive feature selection 
@@ -170,19 +170,25 @@ cvCtrl <- trainControl(method = "cv",
                        number = 10,
                        summaryFunction = twoClassSummary, 
                        selectionFunction = "oneSE",
-                       classProbs = TRUE)
+                       classProbs = TRUE,
+                       allowParallel = TRUE)
 ```
 
 ##Elastic Net
 
 We fit an elastic net model as follows:
-```{r, eval=FALSE}
+```{r}
+# # Define grid of tuning parameters
+elasticGrid <- expand.grid(.alpha = seq(0, 1, 0.1),
+                         .lambda = seq(0, 0.05, by = 0.005))
+
 # Fit penalized logistic regression model (elastic net)
+set.seed(1234)
 elastic.fit <- train(LoanStatus ~ .,
                    data = train_selected_vars,
                    preProc = preProcessSteps,
                    method = "glmnet",
-                   tuneLength = 10,
+                   tuneGrid = elasticGrid, 
                    family = "binomial",
                    trControl = cvCtrl,
                    metric = "ROC")
@@ -190,7 +196,7 @@ elastic.fit <- train(LoanStatus ~ .,
 
 The elastic net model was selected with the following hyperparameters:
 ```{r, echo = FALSE, fig.width=6, fig.height=6}
-elastic.fit <- read_rds("../models/elastic.fit.rds")
+# elastic.fit <- read_rds("../models/elastic.fit.rds")
 elastic.fit
 plot(elastic.fit)
 ```
@@ -198,23 +204,76 @@ plot(elastic.fit)
 ##Random Forest
 
 We fit a random forest model as follows:
-```{r, eval=FALSE}
+```{r}
+# # Define tuning paramter grid
+rfGrid <- expand.grid(.mtry = seq(8,50,2))
+
 # Fit penalized logistic regression model (elastic net)
+set.seed(1234)
 rf.fit <- train(LoanStatus ~ .,
                    data = train_selected_vars,
                    preProc = preProcessSteps,
                    method = "rf",
-                   tuneLength = 10,
+                   tuneGrid = rfGrid, 
                    trControl = cvCtrl,
                    metric = "ROC")
 ```
 
 The random forestmodel was selected with the following hyperparameters:
 ```{r, echo = FALSE, fig.width=6, fig.height=6}
-rf.fit <- read_rds("../models/rf.fit.rds")
+# rf.fit <- read_rds("../models/rf.fit.rds")
 rf.fit
 plot(rf.fit)
 ```
+
+##Support Vector Machine 
+
+We fit a support vector machine with a linear kernel as follows:
+```{r}
+# Define tuning parameter grid 
+svmGrid <- expand.grid(.C = seq(0.001, 1.001, 0.01))
+
+# Fit support vector machine with linear kernel
+set.seed(1234)
+svm.fit <- train(LoanStatus ~ .,
+                   data = train_selected_vars,
+                   preProc = preProcessSteps,
+                   method = "svmLinear",
+                   tuneGrid = svmGrid,
+                   trControl = cvCtrl,
+                   metric = "ROC")
+```
+
+##Gradient Boosting Machine
+
+```{r}
+library(doMC)
+registerDoMC(cores = 4)
+
+# Define tuning parameter grid 
+ntrees = 100
+xgbGrid <- expand.grid(.nrounds = ntrees,
+                       .eta = 3/ntrees,
+                       .max_depth = c(2,4,6,8,10),
+                       .subsample = c(0.5, 0.75, 1), 
+                       .colsample_bytree = c(0.4, 0.6, 0.8, 1),
+                       .gamma = 0, 
+                       .min_child_weight = 1
+                        )
+# Fit gradient boosting machine 
+set.seed(1234)
+xgb_tune <-
+  train(LoanStatus ~ .,
+        data = train_selected_vars,
+        preProc = preProcessSteps,
+        method = "xgbTree",
+        trControl = cvCtrl,
+        tuneGrid = xgbGrid,
+        metric = "ROC",
+        nthread = 5
+    )
+```
+
 
 #Model Evaluation 
 
@@ -391,5 +450,11 @@ testResults %>%
 #       preProc = preProcessSteps,
 #       metric = "ROC",
 #       trControl = train.cntrl)
-```
 
+# cv.ctrl <- trainControl(method = "repeatedcv", repeats = 1,number = 3, 
+#                         #summaryFunction = twoClassSummary,
+#                         classProbs = TRUE,
+#                         allowParallel=T)
+# 
+
+```
