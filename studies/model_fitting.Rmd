@@ -438,7 +438,7 @@ The following calibration plots depict the extent to which our models'
 predicted probabilities of default align with the actual probabilities of
 default. 
 
-```{r, fig.width=10, fig.height=5, eval = TRUE}
+```{r, fig.width=9, fig.height=6, eval = TRUE}
 # Make calibration plots, facetted by model type
 
 # FIX LABELS HERE 
