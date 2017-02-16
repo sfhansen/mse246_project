@@ -1,47 +1,43 @@
 ##########################################################
-##Fit Models
+##Fit Penalized Cox Models For Various lambda and alpha
 require(data.table)
 require(glmnet)
 require(survival)
 
 load('../data/cox_data_environment.RData')
-print(ls())
 
 alpha_seq = seq(0,1,by=0.1)
-lambda_seq = seq(0.5,0.00001,by=-0.0002)
+lambda_seq = seq(0.2,0.000001,by=-0.000001)
 
-fitCoxModels <- function(time_to_default,default,
+fitCoxModels <- function(time_to_status,status,
                          dt,alpha_seq,lambda_seq){
     out_list = list()
     for(alpha in alpha_seq){
         print(paste('fitting model for alpha ',alpha,sep=''))
         mod_name = paste('alpha_',alpha,sep='')
         mod = glmnet(x = dt,
-                     y = Surv(time_to_default, default),
+                     y = Surv(time_to_status, status
+                              ),
                      lambda = lambda_seq,
                      alpha = alpha,
-                     family = 'cox')
+                     family = 'cox'
+                     )
         out_list[[mod_name]] = mod
     }
     return(out_list)
 }
 
-print('fitting 10yr models...')
-##note to index default, time_to_default by train_idx
-fitted_mods_10yr = fitCoxModels(
-    time_to_default_10yr[train_10yr_idx],
-    default_10yr[train_10yr_idx],
-    dt_10yr_train,
+print('fitting 20yr models...')
+fitted_mods = fitCoxModels(
+    time_to_status_train,
+    status_train,
+    dt_train,
     alpha_seq,
     lambda_seq)
 
-print('fitting 20yr models...')
-fitted_mods_20yr = fitCoxModels(
-    time_to_default_20yr[train_20yr_idx],
-    default_20yr[train_20yr_idx],
-    dt_20yr_train,
-    alpha_seq,
-    lambda_seq)
+rm(list = setdiff(ls(),c('alpha_seq',
+                         'lambda_seq',
+                         'fitted_mods')))
 
 save.image(file='../data/cox_models_glmnet_fitted.RData')
 
