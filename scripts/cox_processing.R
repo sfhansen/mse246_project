@@ -1,15 +1,19 @@
+##This script takes the data merged.csv as input.
+##As output, it returns an R environment containing all variables required to feed into a cox model.
+##--It also splits the data into 10yr and 20yr loan-term training and test sets-- 4 data sets in all.
+##--It aslo standarzes numeric variables, creates NA dummy features, and creates polynomial features.
+
 require(data.table)
 
-merged_data_in = '../data/merged.csv'
-dt = fread(merged_data_in)
+dt = fread('../data/merged.csv')
 
 ##########################################################
 ##Preliminary Processing
 
 ##Coerce 'N/A's to proper NAs, recognize as dates
 ##(as.numeric turns them into days since 1/1/1970)
-dt[, ChargeOffDate := as.numeric(as.Date(ChargeOffDate, "%m/%d/%y"))]
-dt[, ApprovalDate := as.numeric(as.Date(ApprovalDate, "%Y-%m-%d"))]
+dt[, ChargeOffDate := as.Date(ChargeOffDate, "%m/%d/%y")]
+dt[, ApprovalDate := as.Date(ApprovalDate, "%Y-%m-%d")]
 
 ##wrong NA form
 dt[SameThirdPartyLendingState == "N/A", SameThirdPartyLendingState := NA]
@@ -19,35 +23,49 @@ dt[, DeliveryMethod := as.integer(ifelse(!is.na(DeliveryMethod),1,NA))]
 
 ##want these to be numeric so that polynom() will see them
 bump_to_num = c('ThirdPartyDollars','gdp',
-                'GrossApproval','TermInMonths',
-                'GrossChargeOffAmount')
+                'GrossApproval','TermInMonths')
 dt[, (bump_to_num) := lapply(.SD, as.numeric), .SDcols = bump_to_num]
 
 ##make these character so that they will be correctly interp. as categorical
 bump_to_char = c('NAICS','FiscalYear','TermInMonths')
 dt[, (bump_to_char) := lapply(.SD, as.character), .SDcols = bump_to_char]
 
-##Create default, time_to_default for use in Cox model
+##########################################################
+##Creation of Cox Variables
+##Loan ages should all be in days...
 
-##Default indicator to use in the cox regression
-default = dt[, ifelse(is.na(ChargeOffDate),0,1)]
-
-##days, life of the loan
-time_to_default = dt[, ChargeOffDate - ApprovalDate]
-
-##The 'follow up time' is to take the place of entries that did not default in
-##time_to_default. So in this case, that would be the end of the window.
-##right censor date, S, window end + 1 day
-S = as.numeric(as.Date('2/01/2014','%m/%d/%Y'))
-censor_obs_idx = which(is.na(time_to_default))
-time_to_default[censor_obs_idx] = S - dt[censor_obs_idx, ApprovalDate]
-
-##This will be useful later-- after preprocessing I will split the data by loan term.
+##Loan term
 term = dt[,TermInMonths]
+termInYears = as.numeric(term)/12 #years
+chgOffDate = dt[,ChargeOffDate] #date
+apprvlDate = dt[,ApprovalDate] #date
+censorDate = as.Date('2/01/2014','%m/%d/%Y') #date
+
+loanPaidOffDate = as.POSIXlt(apprvlDate) #this is just to add years directly
+loanPaidOffDate$year = as.POSIXlt(apprvlDate)$year + termInYears
+loanPaidOffDate = as.Date(loanPaidOffDate)
+
+##status: 0-right censored, 1-paid off, 2-default
+status_m = ifelse(!is.na(chgOffDate), 2, #else...
+           ifelse(loanPaidOffDate <= censorDate, 1, #else...
+                0))
+
+time_to_status = ifelse(!is.na(chgOffDate), chgOffDate - apprvlDate,
+                 ifelse(loanPaidOffDate <= censorDate, loanPaidOffDate - apprvlDate,
+                        censorDate - apprvlDate))
+
+##IMPORTANT:
+##For now, treat paid off as right-censored.
+##If you wish to keep them coded differently, delete this line.
+status = ifelse((status_m == 0) | (status_m == 1), 0, 1)
+
+##This is categorical, it's to separate the dataset later
 loanTermCat = ifelse(term=="240","20yr",ifelse(term=="120","10yr","exclude"))
 
+##########################################################
 ##I don't think these variables are useful (anymore, or ever)
-remove = c('ChargeOffDate','BorrZip','ProjectState','TermByYear','TermInMonths')
+remove = c('ChargeOffDate','BorrZip','ProjectState','TermByYear','TermInMonths',
+           'LoanStatus','GrossChargeOffAmount')
 dt[, (remove) := NULL] 
 
 ##Check again that types are correct:
@@ -60,19 +78,17 @@ print(names(which(sapply(dt,class)=='integer')))
 print('----------logical----------')
 print(names(which(sapply(dt,class)=='logical')))
 
-print('done with preprocessing...')
+print('done with initial stuff...')
 ##########################################################
 ##Additional Processing Functions
 
-##Makes units of all numeric cols in (-1,1],
-##Divides them by max value
 standardizeUnits <- function(dt){
     col_names = colnames(dt)
     ncol_dt = ncol(dt)
     for(idx in 1:ncol_dt){
         col <- dt[, get(col_names[idx])]
         if(class(col) == 'numeric'){
-            dt[, (col_names[idx]) := col/max(col,na.rm=T)]
+            dt[, (col_names[idx]) := (col-mean(col,na.rm=T))/sd(col,na.rm=T)]
         }
     }
 }
@@ -133,40 +149,31 @@ dt = model.matrix(~.,data=dt)
 ##the hazard modeling. Otherwise we would be modeling survival of objects with
 ##deterministically dissimilar lifespans.
 
-dt_20yr = copy(dt[loanTermCat=='20yr',])
-dt_10yr = copy(dt[loanTermCat=='10yr',])
-
-default_20yr = default[loanTermCat=='20yr']
-default_10yr = default[loanTermCat=='20yr']
-
-time_to_default_20yr = time_to_default[loanTermCat=='20yr']
-time_to_default_10yr = time_to_default[loanTermCat=='10yr']
+dt = copy(dt[loanTermCat=='20yr',])
+status = status[loanTermCat=='20yr']
+time_to_status = time_to_status[loanTermCat=='20yr']
 
 ##########################################################
 ##Training Test Split
 
-set.seed(100)
-train_10yr_idx = sample(1:nrow(dt_10yr),floor(0.7*nrow(dt_10yr)),replace=F)
-
 set.seed(10)
-train_20yr_idx = sample(1:nrow(dt_20yr),floor(0.7*nrow(dt_20yr)),replace=F)
+train_idx = sample(1:nrow(dt),floor(0.7*nrow(dt)),replace=F)
 
-dt_10yr_train = dt_10yr[train_10yr_idx,]
-dt_10yr_test = dt_10yr[-train_10yr_idx,]
+dt_train = dt[train_idx,]
+dt_test = dt[-train_idx,]
 
-dt_20yr_train = dt_20yr[train_20yr_idx,]
-dt_20yr_test = dt_20yr[-train_20yr_idx,]
+status_train = status[train_idx]
+status_test = status[-train_idx]
+time_to_status_train = time_to_status[train_idx]
+time_to_status_test = time_to_status[-train_idx]
 
 ##Only save these items:
-rm(list = setdiff(ls(),c('dt_10yr_train',
-                         'dt_10yr_test',
-                         'dt_20yr_train',
-                         'dt_20yr_test',
-                         'train_10yr_idx',
-                         'train_20yr_idx',
-                         'default_10yr',
-                         'default_20yr',                         
-                         'time_to_default_10yr',
-                         'time_to_default_20yr')))
+rm(list = setdiff(ls(),c('dt_train',
+                         'dt_test',
+                         'status_train',                         
+                         'time_to_status_train',
+                         'status_test',
+                         'time_to_status_test',
+                         'status_m')))
 
 save.image(file='../data/cox_data_environment.RData')

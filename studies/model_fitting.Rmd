@@ -10,7 +10,7 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, 
-                      message = FALSE, cache = TRUE, eval = FALSE)
+                      message = FALSE, cache = TRUE, eval = TRUE)
 ```
 
 #Overview
@@ -26,10 +26,11 @@ To do so, this script implements a pipeline that:
 5. Trains binary outcome predictive models, including LASSO and random 
 forests. 
 
-Lastly, we evaluate the performance of these models on the held-out test set
-in terms of AUC, sensitivity, and calibration. 
+Lastly, we evaluate the performance of these models on resampled partitions 
+of the training data, and on a held-out test set in terms of AUC, sensitivity, 
+and calibration. 
 
-```{r, eval = TRUE}
+```{r}
 # Initialize libraries 
 library(ggrepel)
 library(knitr)
@@ -58,8 +59,6 @@ We engineered the following features from the raw data:
 - `subpgmdesc`: condensed infrequent factor levels into "other" category;
 - `approval_year`: extracted year from loan approval datetime object.
 
-
-
 #Data Preprocessing
 
 Some variables are on different scales; for example, `Gross Approval` 
@@ -69,8 +68,10 @@ predictors to apply regularization techniques during the modeling phase.
 
 ```{r}
 # Remove unnecesary features for modeling 
-train <- train %>% select(-c(GrossChargeOffAmount, ChargeOffDate))
-test <- test %>% select(-c(GrossChargeOffAmount, ChargeOffDate))
+train <- train %>% select(-c(GrossChargeOffAmount, ChargeOffDate, 
+                             ApprovalDate, first_zip_digit))
+test <- test %>% select(-c(GrossChargeOffAmount, ChargeOffDate, 
+                           ApprovalDate, first_zip_digit))
 ```
 
 ```{r}
@@ -90,7 +91,8 @@ We perform feature selection using recursive feature elimination
 with 10-fold cross-validation. This method uses the 
 `rfFuncs` parameter, which uses random forests to remove 
 variables with low variable importance.
-```{r, eval=FALSE}
+
+```{r, eval = FALSE}
 # Set the recursive feature elimination parameters 
 set.seed(1234)
 rfFuncs$summary <- twoClassSummary
@@ -108,12 +110,14 @@ rfe.results <-
       data = train,
       rfeControl = rfe.cntrl,
       preProc = preProcessSteps,
-      tuneLength = 10,
+      sizes =  seq(12,132,5),
       metric = "ROC",
       trControl = train.cntrl)
+
+# write_rds(rfe.results, "../models/rfe.results.rds")
 ```
 
-```{r, echo = FALSE, eval=TRUE}
+```{r, echo = FALSE}
 rfe.results <- read_rds("../models/rfe.results.rds")
 ```
 
@@ -171,27 +175,35 @@ cvCtrl <- trainControl(method = "cv",
                        summaryFunction = twoClassSummary, 
                        selectionFunction = "oneSE",
                        classProbs = TRUE)
+                       # allowParallel = TRUE)
 ```
 
 ##Elastic Net
 
 We fit an elastic net model as follows:
-```{r, eval=FALSE}
+
+```{r, eval = FALSE}
+# # Define grid of tuning parameters
+elasticGrid <- expand.grid(.alpha = seq(0, 1, 0.1),
+                         .lambda = seq(0, 0.05, by = 0.005))
+
 # Fit penalized logistic regression model (elastic net)
+set.seed(1234)
 elastic.fit <- train(LoanStatus ~ .,
                    data = train_selected_vars,
                    preProc = preProcessSteps,
                    method = "glmnet",
-                   tuneLength = 10,
+                   tuneGrid = elasticGrid, 
                    family = "binomial",
                    trControl = cvCtrl,
                    metric = "ROC")
 ```
 
-The elastic net model was selected with the following hyperparameters:
+AUC was used to select the optimal elastic net model using the one SE rule.
+The final values used for the model were alpha = 0.1 and lambda = 0.
+
 ```{r, echo = FALSE, fig.width=6, fig.height=6}
 elastic.fit <- read_rds("../models/elastic.fit.rds")
-elastic.fit
 plot(elastic.fit)
 ```
 
@@ -199,23 +211,83 @@ plot(elastic.fit)
 
 We fit a random forest model as follows:
 ```{r, eval=FALSE}
+# # Define tuning paramter grid
+rfGrid <- expand.grid(.mtry = seq(8,50,2))
+
 # Fit penalized logistic regression model (elastic net)
+set.seed(1234)
 rf.fit <- train(LoanStatus ~ .,
                    data = train_selected_vars,
                    preProc = preProcessSteps,
                    method = "rf",
-                   tuneLength = 10,
+                   tuneGrid = rfGrid, 
                    trControl = cvCtrl,
                    metric = "ROC")
 ```
 
-The random forestmodel was selected with the following hyperparameters:
+AUC was used to select the optimal random forest model using the one SE rule.
+The final value used for the model was `mtry` = 8.
 ```{r, echo = FALSE, fig.width=6, fig.height=6}
 rf.fit <- read_rds("../models/rf.fit.rds")
-rf.fit
 plot(rf.fit)
 ```
 
+
+```{r, eval=FALSE}
+##Support Vector Machine 
+# We fit a support vector machine with a linear kernel as follows:
+
+# Define tuning parameter grid 
+svmGrid <- expand.grid(.C = seq(0.001, 1.001, 0.1))
+
+# Fit support vector machine with linear kernel
+set.seed(1234)
+svm.fit <- train(LoanStatus ~ .,
+                   data = train_selected_vars,
+                   preProc = preProcessSteps,
+                   method = "svmLinear",
+                   tuneGrid = svmGrid,
+                   trControl = cvCtrl,
+                   metric = "ROC",
+                   verbose = TRUE)
+```
+
+##Gradient Boosting Machine
+
+```{r, eval = FALSE}
+# Define tuning parameter grid 
+ntrees = 100
+xgbGrid <- expand.grid(.nrounds = ntrees,
+                       .eta = 3/ntrees,
+                       .max_depth = c(2,4,6,8,10),
+                       .subsample = c(0.5, 0.75, 1), 
+                       .colsample_bytree = c(0.4, 0.6, 0.8, 1),
+                       .gamma = 0, 
+                       .min_child_weight = 1
+                        )
+# Fit gradient boosting machine 
+set.seed(1234)
+xgb.fit <-
+  train(LoanStatus ~ .,
+        data = train_selected_vars,
+        preProc = preProcessSteps,
+        method = "xgbTree",
+        trControl = cvCtrl,
+        tuneGrid = xgbGrid,
+        metric = "ROC",
+        nthread = 4
+    )
+```
+
+AUC was used to select the optimal extreme gradient boosting model using 
+the one SE rule. The final values used for the model were `nrounds` = 100, 
+`max_depth` = 6, `eta` = 0.03, `gamma` = 0, `colsample_bytree` = 0.4, 
+`min_child_weight` = 1 and `subsample` = 0.5. 
+
+```{r, echo = FALSE, fig.width=6, fig.height=6}
+xgb.fit <- read_rds("../models/xgb.fit.rds")
+plot(xgb.fit)
+```
 #Model Evaluation 
 
 ##In-Sample Evaluation 
@@ -228,10 +300,13 @@ and sensitivity across the model types with optimized parameters.
 ```{r}
 # Evaluate performance of each model on training data
 bind_rows(getTrainPerf(elastic.fit), 
-          getTrainPerf(rf.fit)) %>% 
+          getTrainPerf(rf.fit),
+          getTrainPerf(xgb.fit)) %>% 
   as_data_frame() %>%
   mutate(method = recode(method, 
-                         "glmnet" = "Elastic Net", "rf" = "Random Forest")) %>%
+                         "glmnet" = "Elastic Net", 
+                         "rf" = "Random Forest",
+                         "xgbTree" = "Gradient Boosting")) %>%
   ggplot(mapping = aes(x = TrainSens, y = TrainROC, label = method)) +
   geom_point() +
   geom_text_repel() +
@@ -246,22 +321,24 @@ sensitivity, and specificity across model types, we leverage the resampled
 data generated during the cross-valiation of modeling fitting to plot 
 their respective distributions.  
 
-```{r}
+```{r, fig.width=9, fig.height=6}
 # Generate resamples from data 
 resamps <- resamples(list(Elastic_Net = elastic.fit,
-                          Random_Forest = rf.fit))
+                          Random_Forest = rf.fit,
+                          Gradient_Boosting = xgb.fit))
 
 # Generate boxplots 
 metric_labs = c("ROC" = "AUC", "Sens" = "Sensitivity", "Spec" = "Specificity")
 resamps$values %>%
-  gather(method, value, `Elastic_Net~ROC`:`Random_Forest~Spec`) %>%
+  gather(method, value, `Elastic_Net~ROC`:`Gradient_Boosting~Spec`) %>%
   separate(method, c("method", "metric"), sep = "~", remove = TRUE) %>%
   ggplot(mapping = aes(x = method, y = value)) +
   geom_boxplot() +
   facet_wrap(~metric, scales = "free_y", 
              labeller = labeller(metric = metric_labs)) +
   labs(x = "Model Type", y = "Metric Value", 
-       title = "Spread of Training AUC, Sensitivity, and Specificity")
+       title = "Spread of Training AUC, Sensitivity, and Specificity") +
+  theme(axis.text.x=element_text(angle = 45, hjust = 1))
 
 ```
 
@@ -269,26 +346,44 @@ resamps$values %>%
 
 Lastly, we can examine the training ROC curves by model type. 
 
-```{r}
+```{r, fig.width=9, fig.height=6}
 # Evaluate performance of trained models on training set 
 trainResults <- data.frame(true_value = train$LoanStatus)
 trainResults$randomForest <- predict(rf.fit, train, type = "prob")[,"default"]
 trainResults$elasticNet <- predict(elastic.fit, train, type = "prob")[,"default"]
+trainResults$gradientBoosting <- predict(xgb.fit, train, type = "prob")[,"default"]
 
 # Compute AUC by model type 
 aucs <-
   data_frame(randomForest = pROC::auc(roc(predictor = trainResults$randomForest,
                        response = trainResults$true_value)),
              elasticNet = pROC::auc(roc(predictor = trainResults$elasticNet,
+                       response = trainResults$true_value)),
+             gradientBoosting = pROC::auc(roc(predictor = trainResults$gradientBoosting,
                        response = trainResults$true_value))) %>%
-  gather(method, auc_value, randomForest:elasticNet) %>%
-  mutate(auc_label = paste("AUC =", round(auc_value,3)))
+  gather(method, auc_value, randomForest:gradientBoosting) %>%
+  mutate(auc_label = paste("AUC =", round(auc_value, 3)))
 
 # Gather results in long format 
 trainResults <- 
   trainResults %>%
-  gather(method, predicted_prob, randomForest:elasticNet) %>%
+  gather(method, predicted_prob, randomForest:gradientBoosting) %>%
   mutate(true_value = ifelse(true_value == "default", 1, 0))
+
+# Plot ROC curves by model type 
+model_labels <- c("randomForest" = "Random Forest",
+                  "elasticNet" = "Elastic Net",
+                  "gradientBoosting" = "Gradient Boosting")
+trainResults %>%
+  ggplot(mapping = aes(d = true_value, m = predicted_prob)) +
+  geom_roc(n.cuts = 5, labelsize = 2, labelround = 3) +
+  annotate(geom = "segment", x = 0, xend = 1, y = 0, yend = 1,
+           color = "black", linetype = 2) +
+  labs(x = "False Positive Fraction", y = "True Positive Fraction",
+       title = "ROC Curves by Model Type") +
+  facet_wrap(~method, labeller = labeller(method = model_labels)) +
+  geom_text(data = aucs, aes(x = 0.75, y = 0.5, label = auc_label), 
+                    colour = "black", inherit.aes = FALSE, parse = FALSE)
 ```
 
 ##Out-of-Sample Evaluation 
@@ -300,27 +395,31 @@ trainResults <-
 testResults <- data.frame(true_value = test$LoanStatus)
 testResults$randomForest <- predict(rf.fit, test, type = "prob")[,"default"]
 testResults$elasticNet <- predict(elastic.fit, test, type = "prob")[,"default"]
+testResults$gradientBoosting <- predict(xgb.fit, test, type = "prob")[,"default"]
 
 # Compute AUC by model type 
 aucs <-
   data_frame(randomForest = pROC::auc(roc(predictor = testResults$randomForest,
                        response = testResults$true_value)),
              elasticNet = pROC::auc(roc(predictor = testResults$elasticNet,
+                       response = testResults$true_value)),
+             gradientBoosting = pROC::auc(roc(predictor = testResults$gradientBoosting,
                        response = testResults$true_value))) %>%
-  gather(method, auc_value, randomForest:elasticNet) %>%
-  mutate(auc_label = paste("AUC =", round(auc_value,3)))
+  gather(method, auc_value, randomForest:gradientBoosting) %>%
+  mutate(auc_label = paste("AUC =", round(auc_value, 3)))
 
 # Gather results in long format 
 testResults <- 
   testResults %>%
-  gather(method, predicted_prob, randomForest:elasticNet) %>%
+  gather(method, predicted_prob, randomForest:gradientBoosting) %>%
   mutate(true_value = ifelse(true_value == "default", 1, 0))
 ```
 
 ```{r, fig.width=9, fig.height=6}
 # Plot ROC curves by model type 
 model_labels <- c("randomForest" = "Random Forest",
-                  "elasticNet" = "Elastic Net")
+                  "elasticNet" = "Elastic Net",
+                  "gradientBoosting" = "Gradient Boosting")
 testResults %>%
   ggplot(mapping = aes(d = true_value, m = predicted_prob)) +
   geom_roc(n.cuts = 5, labelsize = 2, labelround = 3) +
@@ -339,20 +438,24 @@ The following calibration plots depict the extent to which our models'
 predicted probabilities of default align with the actual probabilities of
 default. 
 
-```{r, fig.width=9, fig.height=6}
+```{r, fig.width=10, fig.height=5, eval = TRUE}
 # Make calibration plots, facetted by model type
-pred_prob_midpoints <- data_frame(midpoint = rep(seq(0.025, 0.975, 0.05), each = 2))
+
+# FIX LABELS HERE 
+pred_prob_midpoints <- data_frame(midpoint = c(0, 0, rep(seq(0.05, 0.875, 0.05), each = 3), 0.9, 0.95, 1))
+# pred_prob_midpoints <- data_frame(midpoint = rep(seq(0.025, 0.875, 0.05), each = 3))
+
 testResults %>%
-  mutate(prob_bin = cut_width(predicted_prob,width = 0.05)) %>%
+  mutate(prob_bin = cut_width(predicted_prob, width = 0.05)) %>%
   group_by(prob_bin, method) %>%
-  summarise(prob_default = mean(true_value, na.rm = TRUE),
+  dplyr::summarise(prob_default = mean(true_value, na.rm = TRUE),
             n = n()) %>%
   bind_cols(., pred_prob_midpoints) %>%
   ungroup() %>%
-  ggplot(mapping = aes(x = midpoint, y = prob_default, label = n)) +
+  ggplot(mapping = aes(x = midpoint, y = prob_default)) +
   geom_line() +
   geom_point(mapping = aes(size = n)) +
-  geom_text_repel(mapping = aes(color = "red")) +
+  # geom_text_repel(mapping = aes(color = "red")) +
   annotate(geom = "segment", x = 0, xend = 1, y = 0, yend = 1,
            color = "black", linetype = 2) +
   scale_x_continuous(labels = scales::percent,
@@ -363,8 +466,8 @@ testResults %>%
   scale_size(name = "Number of\nPredictions",
              labels = scales::comma) +
   labs(x = "Predicted Default Probability (Bin Midpoint)",
-       y = "Actual Default Probability",
-       title = "Calibration Plot: Predicted vs. Actual Default Probability") +
+       y = "Observed Default Fraction",
+       title = "Calibration Plot: Predicted vs. Observed Default Probability") +
   facet_wrap(~method, labeller = labeller(method = model_labels))
 ```
 
@@ -391,5 +494,11 @@ testResults %>%
 #       preProc = preProcessSteps,
 #       metric = "ROC",
 #       trControl = train.cntrl)
-```
 
+# cv.ctrl <- trainControl(method = "repeatedcv", repeats = 1,number = 3, 
+#                         #summaryFunction = twoClassSummary,
+#                         classProbs = TRUE,
+#                         allowParallel=T)
+# 
+
+```
