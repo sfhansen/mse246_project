@@ -19,12 +19,15 @@ dt_train = data.frame(selectNonZeroVars(best_mod,dt_train))
 dt_test = data.frame(selectNonZeroVars(best_mod,dt_test))
 
 ##This is a surv object for use in coxph:
-train_surv_obj = Surv(time_to_status[train_idx],
-                      status[train_idx])
+train_surv_obj = Surv(time_to_status_train,
+                      status_train)
 
 ##This is the refit model:
 cox_fit = coxph(train_surv_obj ~ .,
                 data = dt_train)
+
+##My goal is to get 1 year ahead, 2 years ahead ... 10 years ahead P(default)
+
 
 ##Predict probability of default between 1000 days and 7000 days (general loan age).
 ##This gives general S(t1) - S(t2) = P(t1 < T < t2) 
