@@ -4,9 +4,6 @@ require(glmnet)
 require(survival)
 require(peperr)
 
-load('../data/cox_models_glmnet_fitted.RData') #list of glmnet models
-load('../data/cox_data_environment.RData') #load data sets
-
 ##########################################################
 ##Function to plot dev.ratio by alpha and lambda
 heatMapDevRatio <- function(glmnet_obj_list,
