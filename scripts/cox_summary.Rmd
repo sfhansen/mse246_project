@@ -1,0 +1,81 @@
+```{r load env, echo=F,results='hide',message=F}
+require(knitr)
+source('cox_diagnostic.R') #functions for diag
+```
+	
+## Survival Analysis of SBA data:
+#### Motivation:
+Survival analysis gives more information about... 
+   
+#### The full data set:	      
+The data consists of 131,114 loans approved between 1990 and 2014. All records contain the date of approval. Loans that defaulted at some point between 1990 and 2014 contain the date of default. Loans whose term expired within the interval were paid off at the date of the loan expiration.
+
+```{r distribution, eval=T,echo=F,}
+descrip_status = table(status_m)
+names(descrip_status) = c("right_censored","paid_off","defaulted")
+descrip_status
+```
+	
+Roughly 95% of loans had a term of 20 years. For our purposes, we thought it best to consider loans with the same loan term. The remainder of the study focuses on 20 year loans (125,091 loans).
+
+Note that the the variable $T$ that we will be considering throughout is the life of the loan: $P(T_i > t)$ is the probability that loan $i$ lives longer than time $t$. All time is measured in days.		
+
+Polynomial terms up to degree five were added for all numeric variables. Our intention was to include all of these features initially, and conduct feature selection with a penalized model.
+
+Missing values were addressed by setting missing values to 0 and adding an indicator feature for each original variable.	   
+      
+The data was randomly split into 70-30 training-test sets. Including expanded categorical variables, polynomials, and missing value dummies, the data had 157 features.
+      
+#### Kaplan-Meier Survival Curve
+Kaplan-Meier curves are non-parametric estimates of the survival function, $S(t) = P(T>t)$.
+	     
+```{r survcurve,eval=T,echo=F,fig.height=4,fig.width=4,fig.cap="Kaplan-Meier Survival Function Estimate"}
+surv_obj_20yr = Surv(time_to_status_20yr[train_20yr_idx],status_20yr[train_20yr_idx])
+plot(survfit(surv_obj_20yr~1,data=data.frame(dt_20yr_train),conf.type='log-log'),
+     xlim = c(0,7300),ylim = c(0.85,1),
+     xlab = 'days of life (max 7,300)',cex.lab=0.7, cex.axis=0.7,
+     ylab = 'Probability of survival')
+```	     
+
+#### Penalized Cox Proportional Hazards Model
+We fit a series of penalized Cox models to the training data with the intention of reducing the number of features.
+
+We fit these models over various values of two parameters: $\alpha$ and $\lambda$, where $\alpha$ is the weight
+   
+A glmnet object has components dev.ratio and nulldev. The former is the fraction of (null) deviance explained. The deviance calculations incorporate weights if present in the model. The deviance is defined to be 2*(loglike_sat - loglike), where loglike_sat is the log-likelihood for the saturated model (a model with a free parameter per observation). Null deviance is defined to be 2*(loglike_sat -loglike(Null)); The NULL model refers to the intercept model, *except for the Cox, where it is the 0 model*. Hence *dev.ratio=1-deviance/nulldev*, and this deviance method returns (1-dev.ratio)*nulldev
+
+```{r,echo=F,eval=T,results='hide'}
+png('../studies/cox_models_heatmap_20yr.png')
+heatMapDevRatio(glmnet_obj_list = fitted_mods_20yr,
+                alpha_seq = alpha_seq,
+                expression(Deviance~Ratio~as~Function~of~alpha~and~lambda))
+dev.off()
+```  
+\includegraphics[width=350pt]{../studies/cox_models_heatmap_20yr.png}
+	
+```{r bestmods, eval=T,echo=F}
+best_mod_20yr = selectBestCox(fitted_mods_20yr)
+```               
+#### Summary of Cox Model Results	
+```{r coxfit,eval=T,echo=F,message=F,results='hide'}
+
+dt_20yr_train = data.frame(selectNonZeroVars(best_mod_20yr,dt_20yr_train))
+dt_20yr_test = data.frame(selectNonZeroVars(best_mod_20yr,dt_20yr_test))
+
+train_surv_obj = Surv(time_to_status_20yr[train_20yr_idx],
+                      status_20yr[train_20yr_idx])
+
+cox_fit_20yr = coxph(train_surv_obj ~ .,
+                     data = dt_20yr_train)
+
+kable(summary(cox_fit_20yr)$coef,digits=4)
+```
+```{r predict_probabilities, eval=T, echo=F}
+##Predict the probabilities
+probabilityOfDefaultBtwn(cox_fit_20yr, dt_20yr_test[1:100,], 1000, 2000)
+```	
+```{r print_reg_out,eval=T,echo=F,results='asis'}
+
+```
+
+#### One Year and Five Year Prediction of Defaults
