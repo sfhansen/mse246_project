@@ -12,7 +12,7 @@ source('./cox_diagnostic_functions.R')
 ##Applications:
 
 ##Selects best penalized model:
-best_mod = selectBestCox(fitted_mods)
+best_mod = selectBestCox(fitted_mods_20yr)
 
 ##Select variables from data corresponding to those selected by penalized model:
 dt_train = data.frame(selectNonZeroVars(best_mod,dt_train))
