@@ -1,0 +1,108 @@
+---
+title: "Loss at Default Model"
+author: "Samuel Hansen"
+date: "1/21/2017"
+output: 
+  html_document:
+    toc: true
+    keep_md: true 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, 
+                      message = FALSE, cache = TRUE, eval = TRUE)
+```
+
+```{r}
+# Initialize libraries 
+library(knitr)
+library(caret)
+library(stringr)
+library(tidyverse)
+
+# Initialize input files 
+file_in <- "../data/train.rds"
+
+# Read in data 
+train <- read_rds(file_in)
+```
+
+#Data Preparation
+
+##Cleaning
+```{r}
+# Prepare train for modeling 
+train <- 
+  train %>%
+  # Filter to only include defaulted loans
+  filter(LoanStatus == "default") %>%
+  # Remove unecessary variables 
+  select(-c(LoanStatus, ChargeOffDate, ApprovalDate, first_zip_digit))
+```
+
+##Preprocessing
+```{r}
+# Apply pre-processing steps to the data
+preProcessSteps <- c("center", "scale", "nzv")
+preProcessObject <- preProcess(train, method = preProcessSteps)
+train <- predict(preProcessObject, train)
+```
+
+#Feature Selection
+
+```{r, eval = FALSE}
+# Set the recursive feature elimination parameters 
+set.seed(1234)
+rfe.cntrl <- rfeControl(functions = rfFuncs,
+                      method = "cv",
+                      number = 5)
+train.cntrl <- trainControl(selectionFunction = "oneSE")
+
+# Perform recursive feature elimination to select variables
+rfe.results <-
+  rfe(GrossChargeOffAmount~.,
+      data = train,
+      rfeControl = rfe.cntrl,
+      preProc = preProcessSteps,
+      sizes =  seq(12,132,10),
+      metric = "ROC",
+      trControl = train.cntrl)
+```
+
+#Model Fitting 
+
+```{r}
+# Define cross-validation controls 
+cvCtrl <- trainControl(method = "cv", 
+                       number = 5,
+                       selectionFunction = "oneSE",
+                       classProbs = TRUE)
+                       # allowParallel = TRUE)
+```
+
+##Elastic Net
+
+We fit an elastic net model as follows:
+
+```{r, eval = FALSE}
+# # Define grid of tuning parameters
+elasticGrid <- expand.grid(.alpha = seq(0, 1, 0.1),
+                         .lambda = seq(0, 0.05, by = 0.005))
+
+# Fit penalized linear regression model (elastic net)
+set.seed(1234)
+elastic.fit <- train(GrossChargeOffAmount ~ .,
+                   data = train,
+                   preProc = preProcessSteps,
+                   method = "glmnet",
+                   # tuneGrid = elasticGrid, 
+                   trControl = cvCtrl)
+```
+
+#Model Evaluation 
+
+##Test Set Prediction  
+```{r}
+
+```
+
