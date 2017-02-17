@@ -1,19 +1,11 @@
----
-title: "Loss at Default Model"
-author: "Samuel Hansen"
-date: "1/21/2017"
-output: 
-  html_document:
-    toc: true
-    keep_md: true 
----
+# Loss at Default Model
+Samuel Hansen  
+1/21/2017  
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, 
-                      message = FALSE, cache = TRUE, eval = FALSE)
-```
 
-```{r}
+
+
+```r
 # Initialize libraries 
 library(knitr)
 library(caret)
@@ -38,7 +30,8 @@ Before fitting the loss at default model, we clean the training set
 by filtering it to only include defaulted loans and by removing unnecessary
 features such as '`LoanStatus`. 
 
-```{r}
+
+```r
 # Prepare train df to only include defaulted loans 
 train_with_defaults = 
   train %>%
@@ -51,7 +44,8 @@ train_with_defaults =
 We extract the `GrossChargeOffAmount` mean and standard deviation for 
 later re-normalization. 
 
-```{r}
+
+```r
 # Extract GrossChargeOffAmount mean and standard deviation
 mean_GrossChargeOffAmount = mean(train_with_defaults$GrossChargeOffAmount)
 sd_GrossChargeOffAmount = sd(train_with_defaults$GrossChargeOffAmount)
@@ -65,7 +59,8 @@ to the portfolio data used for prediction in the loss at default model.
 Similarly, we apply the same training normalization from the entire training 
 set to the portfolio data used for prediction in the default probability model.
 
-```{r}
+
+```r
 # Apply pre-processing steps to the data
 preProcessSteps = c("center", "scale", "nzv")
 
@@ -89,7 +84,8 @@ portfolio_probs = predict(preProcessObject_probs, portfolio)
 To select the features that are used in the loss at default model, 
 we perform recursive feature elimination. 
 
-```{r, eval = FALSE}
+
+```r
 # Set the recursive feature elimination parameters 
 set.seed(1234)
 rfe.cntrl = rfeControl(functions = rfFuncs,
@@ -122,7 +118,8 @@ train_selected_vars <- train %>%
 To tune hyperparameters, we use 5-fold cross-validation with the "one standard 
 error" rule. 
 
-```{r}
+
+```r
 # Define cross-validation controls 
 cvCtrl = trainControl(method = "cv", 
                        number = 5,
@@ -135,7 +132,8 @@ cvCtrl = trainControl(method = "cv",
 
 We fit an elastic net model as follows:
 
-```{r, eval = FALSE}
+
+```r
 # # Define grid of tuning parameters
 elasticGrid = expand.grid(.alpha = seq(0, 1, 0.1),
                          .lambda = seq(0, 0.05, by = 0.005))
@@ -158,7 +156,8 @@ We calculate the expected loss and default probability of each loan in the
 portfolio of 500 loans by using the model of expected loss and best model
 of default probability. 
 
-```{r}
+
+```r
 # Read in default probability model 
 rf.fit = read_rds(rf_file_in)
 
@@ -176,7 +175,8 @@ prediction_df =
 ```
 
 ##Simulate Distribution of Total Loss 
-```{r}
+
+```r
 # Initialize simulation parameters 
 num_simulations = 1000
 num_loans = nrow(prediction_df)
@@ -202,7 +202,8 @@ for (simulation in c(1:num_simulations)) {
 ```
 
 
-```{r}
+
+```r
 # plotting the histogram for the losses 
 result = data.frame(result)
 ggplot(data = result, aes(result)) +
