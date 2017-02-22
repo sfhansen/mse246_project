@@ -39,13 +39,25 @@ by filtering it to only include defaulted loans and by removing unnecessary
 features such as '`LoanStatus`. 
 
 ```{r}
-# Prepare train df to only include defaulted loans 
+cols_to_drop  = c("LoanStatus", "ChargeOffDate", "ApprovalDate", 
+                  "first_zip_digit", "GrossChargeOffAmount", "GrossApproval")
+# Prepare train data frame to only include defaulted loans 
 train_with_defaults = 
   train %>%
   # Filter to only include defaulted loans
   filter(LoanStatus == "default") %>%
+  # Make percentage loss column 
+  mutate(percent_loss = GrossChargeOffAmount/GrossApproval) %>%
   # Remove unecessary variables 
-  select(-c(LoanStatus, ChargeOffDate, ApprovalDate, first_zip_digit))
+  select(-one_of(cols_to_drop))
+  
+# Prepare portfolio data frame to match training variables 
+portfolio = 
+  portfolio %>%
+  # Make percentage loss column 
+  mutate(percent_loss = GrossChargeOffAmount/GrossApproval) %>%
+  # Remove unecessary variables 
+  select(-one_of(cols_to_drop)) 
 ```
 
 We extract the `GrossChargeOffAmount` mean and standard deviation for 
@@ -55,6 +67,16 @@ later re-normalization.
 # Extract GrossChargeOffAmount mean and standard deviation
 mean_GrossChargeOffAmount = mean(train_with_defaults$GrossChargeOffAmount)
 sd_GrossChargeOffAmount = sd(train_with_defaults$GrossChargeOffAmount)
+median_GrossChargeOffAmount = median(train_with_defaults$GrossChargeOffAmount)
+```
+
+
+```{r}
+# Histogram of 
+train_with_defaults %>%
+  ggplot(mapping = aes(x = percent_loss)) +
+  geom_histogram(binwidth = 0.01) 
+  # scale_x_continuous(labels = scales::dollar)
 ```
 
 ##Pre-processing
@@ -73,7 +95,7 @@ preProcessSteps = c("center", "scale", "nzv")
 preProcessObject_LAD = preProcess(train_with_defaults, method = preProcessSteps)
 train_with_defaults = predict(preProcessObject_LAD, train_with_defaults)
 
-# Apply same pre-processing to portfolio for loss at default model 
+# Apply same pre-processing to portfolio for loss at default model
 portfolio_LAD = predict(preProcessObject_LAD, portfolio)
 
 # Apply pre-processing steps from training set with all data 
@@ -165,13 +187,14 @@ rf.fit = read_rds(rf_file_in)
 # Make data frame with expected loss and default probability for each loan
 prediction_df = 
   data_frame(default_loss = predict(elastic.fit, portfolio_LAD),
+             # default_loss = rep(median_GrossChargeOffAmount, 500),
              default_prob = predict(rf.fit, portfolio_probs, 
                                     type = "prob")[, "default"]) 
  
-  ## Renormalize loss amounts into dollars 
+  # ## Renormalize loss amounts into dollars 
   # mutate(default_loss = sd_GrossChargeOffAmount * default_loss +
-  #          mean_GrossChargeOffAmount) 
-  ## Ensure loss is zero or above 
+  #          mean_GrossChargeOffAmount) %>%
+  # ## Ensure loss is zero or above 
   # mutate(default_loss = ifelse(default_loss < 0, 0, default_loss))
 ```
 
@@ -185,16 +208,19 @@ result <- vector("numeric", num_simulations)
 # run through simulations for the 500 loans
 for (simulation in c(1:num_simulations)) {
   loss = 0  
+  default_count = 0
   
   # generate a uniform random variable and comparing that to our prediction 
-  uniform_probs <- runif(nrow(num_loans))
-  for (loan in c(1:nrow(num_loans))) {
+  uniform_probs <- runif(num_loans)
+  for (loan in c(1:num_loans)) {
+    
+     # if the uniform rv is smaller than our prediction, it has defaulted
     if (uniform_probs[loan] < prediction_df$default_prob[loan]) {
-      
-      # if the uniform rv is smaller than our prediction, it has defaulted
+      default_count = default_count + 1
       loss = loss + prediction_df$default_loss[loan]
     }  
   }
+  # print(default_count)
   
   # each entry in the result vector is the simulated loss for the 500 samples combined
   result[simulation] = loss
@@ -206,9 +232,13 @@ for (simulation in c(1:num_simulations)) {
 # plotting the histogram for the losses 
 result = data.frame(result)
 ggplot(data = result, aes(result)) +
-  geom_histogram(position = "identity", bins = 100) +
-  # scale_x_continuous(labels = scales::dollar) +
+  geom_histogram(position = "identity") +
+  scale_x_continuous(labels = scales::dollar) +
   labs(x = "Total Loss at Default from 500 Loans", y = "Count", 
        title = "Distribution of Total Loss from 500 Loan Portfolio")
 ```
+
+response = grosschargeoffamount/grossApprovalAmount
+apply transformation on predicted LAD values from portfolio 
+aaply sigmoid function
 
