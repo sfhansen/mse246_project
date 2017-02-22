@@ -4,10 +4,10 @@ require(data.table)
 require(glmnet)
 require(survival)
 
-load('../data/cox_data_environment.RData')
+load('../data/cox_data_environment_train.RData')
 
 alpha_seq = seq(0,1,by=0.1)
-lambda_seq = seq(0.2,0.000001,by=-0.000001)
+lambda_seq = seq(0.2,0.000001,by=-0.00001)
 
 fitCoxModels <- function(time_to_status,status,
                          dt,alpha_seq,lambda_seq){
@@ -29,9 +29,9 @@ fitCoxModels <- function(time_to_status,status,
 
 print('fitting 20yr models...')
 fitted_mods = fitCoxModels(
-    time_to_status_train,
-    status_train,
-    dt_train,
+    time_to_status,
+    status,
+    dt,
     alpha_seq,
     lambda_seq)
 
