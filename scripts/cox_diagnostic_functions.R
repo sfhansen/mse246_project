@@ -3,6 +3,57 @@ require(ggplot2)
 require(glmnet)
 require(survival)
 require(peperr)
+##########################################################
+##Additional Processing Functions
+
+standardizeUnits <- function(dt){
+    col_names = colnames(dt)
+    ncol_dt = ncol(dt)
+    for(idx in 1:ncol_dt){
+        col <- dt[, get(col_names[idx])]
+        if(class(col) == 'numeric'){
+            dt[, (col_names[idx]) := (col-mean(col,na.rm=T))/sd(col,na.rm=T)]
+        }
+    }
+}
+
+##Determines if a vector is 0-1 indicator
+isIndicator <- function(col){
+    all(unique(col) %in% c(1,0,NA))   
+}
+
+##Replaces NA values with 0, creates a 0-1 dummy variable in dt 
+dummifyNAs <- function(dt){
+    col_names = colnames(dt)
+    for(col_name in col_names){
+        if(dt[,sum(is.na(get(col_name)))]!=0){
+            na_dum_name <- paste('na_dum_',
+                                 col_name,
+                                 sep='')
+            dt[, (na_dum_name) := ifelse(is.na(get(col_name)),1,0)]
+            dt[is.na(get(col_name)), (col_name) := 0]
+        }
+    }
+}
+
+##Adds n-1 polynomial features for numeric columns
+addPolynomialFeatures <- function(dt, n){
+    col_names = colnames(dt)
+    ncol_dt <- ncol(dt)
+    for(idx in 1:ncol_dt){
+        col <- dt[, get(col_names[idx])]
+        if(class(col) == 'numeric' & !isIndicator(col)){
+            for(poly_idx in 2:n){
+                poly_col_name = paste('p_',
+                                      poly_idx,
+                                      '_',
+                                      col_names[idx],
+                                      sep='')
+                dt[, (poly_col_name) := col^(poly_idx)]
+            }
+        }
+    }
+}
 
 ##########################################################
 ##Function to plot dev.ratio by alpha and lambda
@@ -92,17 +143,13 @@ extractCurrentLoans <- function(curr_date,
                                 dt,
                                 time_to_status,
                                 status){
-    
-    curr_date = as.numeric(curr_date)
-    
-    approval_date = as.Date(dt$ApprovalDate,origin='1970-01-01')
+        
+    approval_date = dt$ApprovalDate
 
     loan_paid_date = as.POSIXlt(approval_date)#this is just to add years directly
     loan_paid_date$year = as.POSIXlt(approval_date)$year + 20
     loan_paid_date = as.numeric(as.Date(loan_paid_date))    
 
-    approval_date = as.numeric(approval_date)
-    
     charge_off_date = ifelse(status, approval_date + time_to_status, NA)
     
     cond1 = approval_date < curr_date
@@ -113,8 +160,8 @@ extractCurrentLoans <- function(curr_date,
     print(paste('loans paid off before current date: ', sum(!cond2), sep=''))
     print(paste('loans defaulted before current date: ', sum(!cond3), sep=''))
     print(paste('number of active loans as of ',
-                as.Date(curr_date,origin='1970-01-01'),
-                ': ', sum(cond1&cond2&cond3), sep = ''))
+                curr_date,
+                ': ', sum(cond1 & cond2 & cond3), sep = ''))
 
     ##Extract these from the data
     dt = dt[cond1 & cond2 & cond3,]
@@ -127,9 +174,9 @@ extractCurrentLoans <- function(curr_date,
 ##Gives probability of default for data.frame of new loans, 'new_data' between
 ##loan ages of t1 and t2. 
 pOfDefaultBtwn <- function(fit_mod, new_data, t1, t2){
-    n = nrow(new_data)
+    ntimes = nrow(new_data)
     p.mat = predictProb(fit_mod,
-                        Surv(rep(1,n),rep(0,n)),
+                        Surv(rep(1,ntimes),rep(0,ntimes)),
                         new_data, c(t1,t2))
     p.btwn.t1.t2 = p.mat[,1] - p.mat[,2]
 
@@ -149,12 +196,12 @@ pOfDefaultOverNext.multObs <- function(fit_mod, new_data, loan_ages, time_ahead)
                                       round(time_ahead,2),'.txt',sep=''))
 
     warningMessage <- function(loan_age,time_ahead){
-        paste('NOTE: This loan is ', round(loan_age/365.25,2),
-              ' years old, and you are trying to predict',
-              ' default probability over the next ',
-              round(time_ahead/365.2) ,
-              ' years. All loans have term of 20 years. Returning NA.',
-              sep='')
+        print(paste('NOTE: This loan is ', round(loan_age/365.25,2),
+                    ' years old, and you are trying to predict',
+                    ' default probability over the next ',
+                    round(time_ahead/365.2) ,
+                    ' years. All loans have term of 20 years. Returning NA.',
+                    sep=''))
     }
     
     iterateMessage <- function(idx,loan_age,time_ahead){
@@ -184,7 +231,7 @@ pOfDefaultOverNext.multObs <- function(fit_mod, new_data, loan_ages, time_ahead)
                                   "loan_ages","time_ahead","pOfDefaultBtwn",
                                   "dt_train","train_surv_obj"),
                   envir = environment())
-    
+
     clusterEvalQ(cl, library(peperr))
     clusterEvalQ(cl, library(survival))
     out = parLapply(cl, 1:nrow(new_data), innerWorkings,
@@ -197,11 +244,8 @@ pOfDefaultOverNext.multObs <- function(fit_mod, new_data, loan_ages, time_ahead)
     return(out)
 }
 
-
-
-
 ##Predict probability of default between t1 and t2 (loan age)
 ##This gives general S(t1) - S(t2) = P(t1 < T < t2) 
-#pOfDefaultBtwn(cox_fit, dt_test_curr[1:100,], 1000, 7000)
+                                        #pOfDefaultBtwn(cox_fit, dt_test_curr[1:100,], 1000, 7000)
 
 
