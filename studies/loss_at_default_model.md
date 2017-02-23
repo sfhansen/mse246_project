@@ -16,10 +16,12 @@ library(tidyverse)
 train_file_in = "../data/train.rds"
 portfolio_file_in = "../data/portfolio.rds"
 rf_file_in = "../models/rf.fit.rds"
+prob_file_in <- "../data/cox_portfolio_probabilities.RData"
 
 # Read in data 
 train = read_rds(train_file_in)
 portfolio = read_rds(portfolio_file_in)
+load(prob_file_in)
 ```
 
 #Data Preparation
@@ -32,13 +34,30 @@ features such as '`LoanStatus`.
 
 
 ```r
-# Prepare train df to only include defaulted loans 
+cols_to_drop  = c("LoanStatus", "ChargeOffDate", "ApprovalDate", 
+                  "first_zip_digit", "GrossChargeOffAmount", "GrossApproval")
+# Prepare train data frame to only include defaulted loans 
 train_with_defaults = 
   train %>%
   # Filter to only include defaulted loans
   filter(LoanStatus == "default") %>%
+  # Make percentage loss column 
+  mutate(percent_loss = GrossChargeOffAmount/GrossApproval) %>%
   # Remove unecessary variables 
-  select(-c(LoanStatus, ChargeOffDate, ApprovalDate, first_zip_digit))
+  select(-one_of(cols_to_drop))
+  
+# Prepare portfolio data frame to match training variables 
+portfolio = 
+  portfolio %>%
+  # Make percentage loss column 
+  mutate(percent_loss = GrossChargeOffAmount/GrossApproval) %>%
+  # Remove unecessary variables 
+  select(-one_of(cols_to_drop)) 
+
+# Convert probabilities object to data frame 
+default_probs = 
+  data_frame(one_year = p_1 %>% unlist(),
+             five_year = p_5 %>% unlist()) 
 ```
 
 We extract the `GrossChargeOffAmount` mean and standard deviation for 
@@ -47,8 +66,19 @@ later re-normalization.
 
 ```r
 # Extract GrossChargeOffAmount mean and standard deviation
-mean_GrossChargeOffAmount = mean(train_with_defaults$GrossChargeOffAmount)
-sd_GrossChargeOffAmount = sd(train_with_defaults$GrossChargeOffAmount)
+# mean_GrossChargeOffAmount = mean(train_with_defaults$GrossChargeOffAmount)
+# sd_GrossChargeOffAmount = sd(train_with_defaults$GrossChargeOffAmount)
+# median_GrossChargeOffAmount = median(train_with_defaults$GrossChargeOffAmount)
+```
+
+
+
+```r
+# Histogram of percentage loss 
+# train_with_defaults %>%
+#   ggplot(mapping = aes(x = percent_loss)) +
+#   geom_histogram(binwidth = 0.01) 
+#   scale_x_continuous(labels = scales::dollar)
 ```
 
 ##Pre-processing
@@ -62,21 +92,23 @@ set to the portfolio data used for prediction in the default probability model.
 
 ```r
 # Apply pre-processing steps to the data
-preProcessSteps = c("center", "scale", "nzv")
+preProcessSteps = c("nzv")
+# preProcessSteps = c("center", "scale", "nzv")
 
-# Apply pre-processing steps from training set with only defaults
-preProcessObject_LAD = preProcess(train_with_defaults, method = preProcessSteps)
-train_with_defaults = predict(preProcessObject_LAD, train_with_defaults)
 
-# Apply same pre-processing to portfolio for loss at default model 
-portfolio_LAD = predict(preProcessObject_LAD, portfolio)
+# # Apply pre-processing steps from training set with only defaults
+# preProcessObject_LAD = preProcess(train_with_defaults, method = preProcessSteps)
+# train_with_defaults = predict(preProcessObject_LAD, train_with_defaults)
+# 
+# # Apply same pre-processing to portfolio for loss at default model
+# portfolio_LAD = predict(preProcessObject_LAD, portfolio)
 
-# Apply pre-processing steps from training set with all data 
-preProcessObject_probs = preProcess(train, method = preProcessSteps)
-train = predict(preProcessObject_probs, train)
-
-# Apply same pre-processing to portfolio for default probability model 
-portfolio_probs = predict(preProcessObject_probs, portfolio)
+# # Apply pre-processing steps from training set with all data 
+# preProcessObject_probs = preProcess(train, method = preProcessSteps)
+# train = predict(preProcessObject_probs, train)
+# 
+# # Apply same pre-processing to portfolio for default probability model 
+# portfolio_probs = predict(preProcessObject_probs, portfolio)
 ```
 
 #Feature Selection
@@ -95,11 +127,11 @@ train.cntrl = trainControl(selectionFunction = "oneSE")
 
 # Perform recursive feature elimination to select variables
 rfe.results =
-  rfe(GrossChargeOffAmount~.,
+  rfe(percent_loss~.,
       data = train_with_defaults,
       rfeControl = rfe.cntrl,
       preProc = preProcessSteps,
-      sizes =  seq(12,132,10),
+      # sizes =  seq(12,132,10),
       metric = "ROC",
       trControl = train.cntrl)
 
@@ -110,7 +142,7 @@ selected_vars <- map(predictors(rfe.results),
   .[!is.na(.)] %>%
   unique())
 train_selected_vars <- train %>%
-  select(one_of(selected_vars), GrossChargeOffAmount)
+  select(one_of(selected_vars), percent_loss)
 ```
 
 #Model Fitting 
@@ -128,23 +160,18 @@ cvCtrl = trainControl(method = "cv",
                        # allowParallel = TRUE)
 ```
 
-##Elastic Net
-
-We fit an elastic net model as follows:
-
+##Random Forest Model 
 
 ```r
-# # Define grid of tuning parameters
-elasticGrid = expand.grid(.alpha = seq(0, 1, 0.1),
-                         .lambda = seq(0, 0.05, by = 0.005))
-
-# Fit penalized linear regression model (elastic net)
+# Define grid of tuning parameters
+rfGrid = expand.grid(.mtry = c(2, 4, 6, 8, 10, 14))
+# Fit random forest model
 set.seed(1234)
-elastic.fit = train(GrossChargeOffAmount ~ .,
+rf.fit = train(percent_loss ~ .,
                    data = train_selected_vars,
                    preProc = preProcessSteps,
-                   method = "glmnet",
-                   # tuneGrid = elasticGrid, 
+                   method = "rf",
+                   # tuneGrid = rfGrid,
                    trControl = cvCtrl)
 ```
 
@@ -158,19 +185,15 @@ of default probability.
 
 
 ```r
-# Read in default probability model 
-rf.fit = read_rds(rf_file_in)
-
 # Make data frame with expected loss and default probability for each loan
 prediction_df = 
-  data_frame(default_loss = predict(elastic.fit, portfolio_LAD),
-             default_prob = predict(rf.fit, portfolio_probs, 
-                                    type = "prob")[, "default"]) 
+  bind_cols(default_loss = predict(rf.fit, portfolio),
+            default_probs) 
  
-  ## Renormalize loss amounts into dollars 
+  # ## Renormalize loss amounts into dollars 
   # mutate(default_loss = sd_GrossChargeOffAmount * default_loss +
-  #          mean_GrossChargeOffAmount) 
-  ## Ensure loss is zero or above 
+  #          mean_GrossChargeOffAmount) %>%
+  # ## Ensure loss is zero or above 
   # mutate(default_loss = ifelse(default_loss < 0, 0, default_loss))
 ```
 
@@ -187,11 +210,11 @@ for (simulation in c(1:num_simulations)) {
   loss = 0  
   
   # generate a uniform random variable and comparing that to our prediction 
-  uniform_probs <- runif(nrow(num_loans))
-  for (loan in c(1:nrow(num_loans))) {
+  uniform_probs <- runif(num_loans)
+  for (loan in c(1:num_loans)) {
+    
+     # if the uniform rv is smaller than our prediction, it has defaulted
     if (uniform_probs[loan] < prediction_df$default_prob[loan]) {
-      
-      # if the uniform rv is smaller than our prediction, it has defaulted
       loss = loss + prediction_df$default_loss[loan]
     }  
   }
@@ -202,14 +225,37 @@ for (simulation in c(1:num_simulations)) {
 ```
 
 
-
 ```r
 # plotting the histogram for the losses 
 result = data.frame(result)
 ggplot(data = result, aes(result)) +
-  geom_histogram(position = "identity", bins = 100) +
-  # scale_x_continuous(labels = scales::dollar) +
+  geom_histogram(position = "identity") +
+  scale_x_continuous(labels = scales::dollar) +
   labs(x = "Total Loss at Default from 500 Loans", y = "Count", 
        title = "Distribution of Total Loss from 500 Loan Portfolio")
 ```
 
+
+
+
+```r
+# COMMENTED OUT BECAUSE NOT USING THIS NOW 
+# We fit an elastic net model as follows:
+# # # Define grid of tuning parameters
+# elasticGrid = expand.grid(.alpha = seq(0, 1, 0.1),
+#                          .lambda = seq(0, 0.05, by = 0.005))
+# 
+# # Fit penalized linear regression model (elastic net)
+# set.seed(1234)
+# elastic.fit = train(percent_loss ~ .,
+#                    data = train_selected_vars,
+#                    preProc = preProcessSteps,
+#                    method = "glmnet",
+#                    # tuneGrid = elasticGrid, 
+#                    trControl = cvCtrl)
+
+# OTHER NOTES: 
+# response = grosschargeoffamount/grossApprovalAmount
+# apply transformation on predicted LAD values from portfolio 
+# aaply sigmoid function
+```
