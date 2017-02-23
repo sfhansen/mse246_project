@@ -1,0 +1,47 @@
+---
+title: "MS&E 246 Final Report"
+author: "Samuel Hansen, Theo Vadpey, Alex Elkrief, Ben Ertringer"
+date: "2/23/2017"
+output: 
+  html_document:
+    number_sections: yes
+    toc: true
+    keep_md: true 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, 
+                      message = FALSE, cache = TRUE, eval = TRUE)
+```
+
+#Exectutive Summary
+
+- SAM
+
+#Exploratory Data Analysis
+
+- SAM
+
+#Modeling Default Probability 
+
+##Binary Response Models
+
+- SAM
+
+##Cox Proportional Hazards Models 
+
+- THEO
+
+#Modeling Loss at Default 
+
+##Value-at-Risk
+
+- ALEX
+
+##Average Value-at-Risk
+
+- ALEX
+
+#Loss Distributions by Tranche
+
+- BEN
