@@ -21,7 +21,7 @@ library(tidyverse)
 # Initialize input files 
 train_file_in = "../data/train.rds"
 full_file_in = "../data/merged.rds"
-model_file_in = "../models/rf.fit.rds"
+model_file_in = "../models/xgb.fit.rds"
 
 # Read in data 
 train = read_rds(train_file_in)
