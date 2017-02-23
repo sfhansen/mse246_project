@@ -1,7 +1,7 @@
 ---
 title: "Loss at Default Model"
 author: "Samuel Hansen"
-date: "1/21/2017"
+date: "2/23/2017"
 output: 
   html_document:
     toc: true
@@ -37,7 +37,7 @@ load(prob_file_in)
 
 Before fitting the loss at default model, we clean the training set 
 by filtering it to only include defaulted loans and by removing unnecessary
-features such as '`LoanStatus`. 
+features such as `LoanStatus`. 
 
 ```{r}
 cols_to_drop  = c("LoanStatus", "ChargeOffDate", "ApprovalDate", 
@@ -66,25 +66,6 @@ default_probs =
              five_year_prob = p_5 %>% unlist()) 
 ```
 
-We extract the `GrossChargeOffAmount` mean and standard deviation for 
-later re-normalization. 
-
-```{r}
-# Extract GrossChargeOffAmount mean and standard deviation
-# mean_GrossChargeOffAmount = mean(train_with_defaults$GrossChargeOffAmount)
-# sd_GrossChargeOffAmount = sd(train_with_defaults$GrossChargeOffAmount)
-# median_GrossChargeOffAmount = median(train_with_defaults$GrossChargeOffAmount)
-```
-
-
-```{r}
-# Histogram of percentage loss 
-# train_with_defaults %>%
-#   ggplot(mapping = aes(x = percent_loss)) +
-#   geom_histogram(binwidth = 0.01) 
-#   scale_x_continuous(labels = scales::dollar)
-```
-
 ##Pre-processing
 
 We pre-process the data by centering and scaling all continuous features. 
@@ -96,22 +77,6 @@ set to the portfolio data used for prediction in the default probability model.
 ```{r}
 # Apply pre-processing steps to the data
 preProcessSteps = c("nzv")
-# preProcessSteps = c("center", "scale", "nzv")
-
-
-# # Apply pre-processing steps from training set with only defaults
-# preProcessObject_LAD = preProcess(train_with_defaults, method = preProcessSteps)
-# train_with_defaults = predict(preProcessObject_LAD, train_with_defaults)
-# 
-# # Apply same pre-processing to portfolio for loss at default model
-# portfolio_LAD = predict(preProcessObject_LAD, portfolio)
-
-# # Apply pre-processing steps from training set with all data 
-# preProcessObject_probs = preProcess(train, method = preProcessSteps)
-# train = predict(preProcessObject_probs, train)
-# 
-# # Apply same pre-processing to portfolio for default probability model 
-# portfolio_probs = predict(preProcessObject_probs, portfolio)
 ```
 
 #Feature Selection
@@ -190,10 +155,13 @@ of default probability.
 prediction_df = 
   bind_cols(
     # Predicted losses from loss at default model 
-    data_frame(default_loss = predict(rf.fit, portfolio)),
-    # 1- and 5-year default probabilities
+    data_frame(default_loss = predict(rf.fit, portfolio)) %>%
+      # Apply sigmoid transformation to recover values between 0-1 
+      mutate(default_loss = 1 / (1 + exp(1)^(-default_loss))),
+    # Bind 1- and 5-year default probabilities
     default_probs) 
  
+# USE THIS CODE IF LOSS AT DEFAUL MODEL PREDICTS DOLLAR AMOUNTS
   # ## Renormalize loss amounts into dollars 
   # mutate(default_loss = sd_GrossChargeOffAmount * default_loss +
   #          mean_GrossChargeOffAmount) %>%
@@ -245,7 +213,7 @@ five_year_default_result = data.frame(five_year_default_result)
 ggplot(data = one_year_default_result, aes(one_year_default_result)) +
   geom_histogram(position = "identity") +
   labs(x = "Total Loss at Default from 500 Loans", y = "Count", 
-       title = "Distribution of Total Loss from 500 Loan Portfolio")
+       title = "Five-Year Expected Loss Distribution from 500 Loan Portfolio")
 ```
 
 ```{r}
@@ -253,15 +221,26 @@ ggplot(data = one_year_default_result, aes(one_year_default_result)) +
 ggplot(data = five_year_default_result, aes(five_year_default_result)) +
   geom_histogram(position = "identity") +
   labs(x = "Total Loss at Default from 500 Loans", y = "Count", 
-       title = "Distribution of Total Loss from 500 Loan Portfolio")
+       title = "Five-Year Expected Loss Distribution from 500 Loan Portfolio")
 ```
 
 ##Compute Value-at-Risk
 
+TO DO:
+
+- Fix total loss distribution, since it represents the *sum* of loss percentages 
+- Measure the risk in terms of the VaR at the 95% and 99% levels 
+(include confidence bands for your estimates). 
+- State the loan selection method --> Ask Theo 
+
 ##Compute Average Value-at-Risk
 
-```{r, eval = FALSE}
+- Measure the risk in terms of the Average VaR at the 95% and 99% levels 
+(include confidence bands for your estimates). 
+
+```{r, eval = FALSE, echo = FALSE}
 # COMMENTED OUT BECAUSE NOT USING THIS NOW 
+
 # We fit an elastic net model as follows:
 # # # Define grid of tuning parameters
 # elasticGrid = expand.grid(.alpha = seq(0, 1, 0.1),
@@ -276,8 +255,37 @@ ggplot(data = five_year_default_result, aes(five_year_default_result)) +
 #                    # tuneGrid = elasticGrid, 
 #                    trControl = cvCtrl)
 
+# preProcessSteps = c("center", "scale", "nzv")
+
+# # Apply pre-processing steps from training set with only defaults
+# preProcessObject_LAD = preProcess(train_with_defaults, method = preProcessSteps)
+# train_with_defaults = predict(preProcessObject_LAD, train_with_defaults)
+# 
+# # Apply same pre-processing to portfolio for loss at default model
+# portfolio_LAD = predict(preProcessObject_LAD, portfolio)
+
+# # Apply pre-processing steps from training set with all data 
+# preProcessObject_probs = preProcess(train, method = preProcessSteps)
+# train = predict(preProcessObject_probs, train)
+# 
+# # Apply same pre-processing to portfolio for default probability model 
+# portfolio_probs = predict(preProcessObject_probs, portfolio)
+
+# We extract the `GrossChargeOffAmount` mean and standard deviation for 
+# later re-normalization. 
+# Extract GrossChargeOffAmount mean and standard deviation
+# mean_GrossChargeOffAmount = mean(train_with_defaults$GrossChargeOffAmount)
+# sd_GrossChargeOffAmount = sd(train_with_defaults$GrossChargeOffAmount)
+# median_GrossChargeOffAmount = median(train_with_defaults$GrossChargeOffAmount)
+
+# Histogram of percentage loss 
+# train_with_defaults %>%
+#   ggplot(mapping = aes(x = percent_loss)) +
+#   geom_histogram(binwidth = 0.01) 
+#   scale_x_continuous(labels = scales::dollar)
+
 # OTHER NOTES: 
 # response = grosschargeoffamount/grossApprovalAmount
 # apply transformation on predicted LAD values from portfolio 
-# aaply sigmoid function
+# apply sigmoid function
 ```
