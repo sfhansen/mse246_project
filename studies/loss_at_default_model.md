@@ -190,7 +190,7 @@ of default probability.
 prediction_df = 
   bind_cols(
     # Predicted losses from loss at default model 
-    default_loss = predict(rf.fit, portfolio),
+    data_frame(default_loss = predict(rf.fit, portfolio)),
     # 1- and 5-year default probabilities
     default_probs) 
  
@@ -240,12 +240,12 @@ one_year_default_result = data.frame(one_year_default_result)
 five_year_default_result = data.frame(five_year_default_result)
 ```
 
+##Plot Expected Loss Distributions
 
 ```r
 # Plot the histogram for the 1-year losses 
 ggplot(data = one_year_default_result, aes(one_year_default_result)) +
   geom_histogram(position = "identity") +
-  scale_x_continuous(labels = scales::dollar) +
   labs(x = "Total Loss at Default from 500 Loans", y = "Count", 
        title = "Distribution of Total Loss from 500 Loan Portfolio")
 ```
@@ -253,13 +253,15 @@ ggplot(data = one_year_default_result, aes(one_year_default_result)) +
 
 ```r
 # Plot the histogram for the 5-year losses 
-ggplot(data = one_year_default_result, aes(one_year_default_result)) +
+ggplot(data = five_year_default_result, aes(five_year_default_result)) +
   geom_histogram(position = "identity") +
-  scale_x_continuous(labels = scales::dollar) +
   labs(x = "Total Loss at Default from 500 Loans", y = "Count", 
        title = "Distribution of Total Loss from 500 Loan Portfolio")
 ```
 
+##Compute Value-at-Risk
+
+##Compute Average Value-at-Risk
 
 
 ```r
