@@ -169,6 +169,7 @@ prediction_df =
 
 ##Simulate Distribution of Total Loss 
 
+
 ```r
 # Initialize simulation parameters 
 num_simulations = 1000
