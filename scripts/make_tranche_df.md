@@ -1,0 +1,67 @@
+# Creating the Tranch Probability Data Frame
+Samuel Hansen  
+2/23/2017  
+
+
+
+#Overview
+
+This script makes the data frame used to build tranches. It uses the best 
+binary response model of defaulting (as evaluated on the test set) to estimate
+the probability of defaulting on all loans. 
+
+
+```r
+# Initialize libraries 
+library(knitr)
+library(caret)
+library(stringr)
+library(tidyverse)
+
+# Initialize input files 
+train_file_in = "../data/train.rds"
+full_file_in = "../data/merged.rds"
+model_file_in = "../models/rf.fit.rds"
+
+# Read in data 
+train = read_rds(train_file_in)
+full = read_rds(full_file_in)
+model = read_rds(model_file_in)
+```
+
+#Data Pre-Processing
+
+
+```r
+# Define unnecessary videos 
+vars_to_drop = c("GrossChargeOffAmount", "ChargeOffDate", 
+                             "ApprovalDate", "first_zip_digit")
+
+# Remove unnecesary features for modeling 
+train = train %>% select(-one_of(vars_to_drop))
+full = full %>% select(-one_of(vars_to_drop))
+
+# Select cols to keep for output data frame
+cols_to_keep = full %>% select(year = FiscalYear, GrossApproval)
+
+# Define pre-processing steps to apply to training data
+preProcessSteps = c("center", "scale", "nzv")
+
+# Apply same pre-processing steps to the test set
+preProcessObject = preProcess(train, method = preProcessSteps)
+train = predict(preProcessObject, train)
+full = predict(preProcessObject, full)
+```
+
+#Creating the Default Probability Data Frame
+
+
+```r
+out_df = 
+  bind_cols(
+    data_frame(default_prob = predict(model, full, type = "prob")[,"default"]),
+    data_frame(default_status = predict(model, full)),
+    cols_to_keep
+  )
+write_rds(out_df, "../data/tranche_prob_df.rds")
+```
