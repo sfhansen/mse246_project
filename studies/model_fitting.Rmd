@@ -67,11 +67,13 @@ varies in dollar amounts from \$30,000  to \$4,000,000, whereas
 predictors to apply regularization techniques during the modeling phase. 
 
 ```{r}
+# Define unnecessary videos 
+vars_to_drop <- c("GrossChargeOffAmount", "ChargeOffDate", 
+                             "ApprovalDate", "first_zip_digit")
+
 # Remove unnecesary features for modeling 
-train <- train %>% select(-c(GrossChargeOffAmount, ChargeOffDate, 
-                             ApprovalDate, first_zip_digit))
-test <- test %>% select(-c(GrossChargeOffAmount, ChargeOffDate, 
-                           ApprovalDate, first_zip_digit))
+train <- train %>% select(-one_of(vars_to_drop))
+test <- test %>% select(-one_of(vars_to_drop))
 ```
 
 ```{r}
@@ -106,7 +108,7 @@ train.cntrl <- trainControl(selectionFunction = "oneSE",
 
 # Perform recursive feature elimination to select variables
 rfe.results <-
-  rfe(LoanStatus~.,
+  rfe(GrossChargeOffAmount~.,
       data = train,
       rfeControl = rfe.cntrl,
       preProc = preProcessSteps,
@@ -470,6 +472,7 @@ testResults %>%
        title = "Calibration Plot: Predicted vs. Observed Default Probability") +
   facet_wrap(~method, labeller = labeller(method = model_labels))
 ```
+
 
 ```{r, echo = FALSE}
 #IGNORE THIS CODE FOR NOW

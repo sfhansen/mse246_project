@@ -145,7 +145,6 @@ df %>%
   geom_line() +
   scale_y_continuous(labels = scales::percent) +
   scale_size_continuous(name = "Count") +
-  # scale_x_continuous(labels = scales::comma) +
   scale_color_discrete(name = "Business Type") + 
   labs(x = "Approval Year", y = "Default Rate",
        title = "Default Rate vs. Business Type by Approval Year")
