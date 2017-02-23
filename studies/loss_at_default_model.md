@@ -69,7 +69,7 @@ set to the portfolio data used for prediction in the default probability model.
 
 
 ```r
-# Apply pre-processing steps to the data
+# Define pre-processing steps
 preProcessSteps = c("nzv")
 ```
 
@@ -93,7 +93,7 @@ rfe.results =
       data = train_with_defaults,
       rfeControl = rfe.cntrl,
       preProc = preProcessSteps,
-      # sizes =  seq(12,132,10),
+      # sizes =  seq(12,132,10), # commented out to reduce runtime 
       metric = "ROC",
       trControl = train.cntrl)
 
@@ -135,7 +135,7 @@ rf.fit = train(percent_loss ~ .,
                    data = train_selected_vars,
                    preProc = preProcessSteps,
                    method = "rf",
-                   # tuneGrid = rfGrid,
+                   # tuneGrid = rfGrid, # commented out to reduce runtime 
                    trControl = cvCtrl)
 ```
 
