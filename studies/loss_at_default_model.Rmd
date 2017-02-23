@@ -23,7 +23,6 @@ library(tidyverse)
 # Initialize input files 
 train_file_in = "../data/train.rds"
 portfolio_file_in = "../data/portfolio.rds"
-rf_file_in = "../models/rf.fit.rds"
 prob_file_in <- "../data/cox_portfolio_probabilities.RData"
 
 # Read in data 
@@ -63,8 +62,8 @@ portfolio =
 
 # Convert probabilities object to data frame 
 default_probs = 
-  data_frame(one_year = p_1 %>% unlist(),
-             five_year = p_5 %>% unlist()) 
+  data_frame(one_year_prob = p_1 %>% unlist(),
+             five_year_prob = p_5 %>% unlist()) 
 ```
 
 We extract the `GrossChargeOffAmount` mean and standard deviation for 
@@ -143,8 +142,10 @@ selected_vars <- map(predictors(rfe.results),
                       ~str_match(.x, names(train_with_defaults))) %>% 
   unlist() %>% 
   .[!is.na(.)] %>%
-  unique())
-train_selected_vars <- train %>%
+  unique()
+
+# Create data frame with these selected variables 
+train_selected_vars <- train_with_defaults %>%
   select(one_of(selected_vars), percent_loss)
 ```
 
@@ -185,10 +186,13 @@ portfolio of 500 loans by using the model of expected loss and best model
 of default probability. 
 
 ```{r}
-# Make data frame with expected loss and default probability for each loan
+# Make data frame with predicted loss and default probability for each loan
 prediction_df = 
-  bind_cols(default_loss = predict(rf.fit, portfolio),
-            default_probs) 
+  bind_cols(
+    # Predicted losses from loss at default model 
+    default_loss = predict(rf.fit, portfolio),
+    # 1- and 5-year default probabilities
+    default_probs) 
  
   # ## Renormalize loss amounts into dollars 
   # mutate(default_loss = sd_GrossChargeOffAmount * default_loss +
@@ -202,37 +206,56 @@ prediction_df =
 # Initialize simulation parameters 
 num_simulations = 1000
 num_loans = nrow(prediction_df)
-result <- vector("numeric", num_simulations)
+one_year_default_result <- vector("numeric", num_simulations)
+five_year_default_result <- vector("numeric", num_simulations)
 
 # run through simulations for the 500 loans
 for (simulation in c(1:num_simulations)) {
-  loss = 0  
+  one_year_loss = 0  
+  five_year_loss = 0  
   
   # generate a uniform random variable and comparing that to our prediction 
   uniform_probs <- runif(num_loans)
   for (loan in c(1:num_loans)) {
     
-     # if the uniform rv is smaller than our prediction, it has defaulted
-    if (uniform_probs[loan] < prediction_df$default_prob[loan]) {
-      loss = loss + prediction_df$default_loss[loan]
-    }  
+     # if the uniform rv is smaller than one year default prob, loan has defaulted
+    if (uniform_probs[loan] < prediction_df$one_year_prob[loan]) {
+      one_year_loss = one_year_loss + prediction_df$default_loss[loan]
+    } 
+    
+     # if the uniform rv is smaller than five year default prob, loan has defaulted
+    if (uniform_probs[loan] < prediction_df$five_year_prob[loan]) {
+      five_year_loss = five_year_loss + prediction_df$default_loss[loan]
+    } 
   }
   
-  # each entry in the result vector is the simulated loss for the 500 samples combined
-  result[simulation] = loss
+  # Update result vectors with total loss of current simulation 
+  one_year_default_result[simulation] = one_year_loss
+  five_year_default_result[simulation] = five_year_loss
 }
+
+# Convert result objects to data frames 
+one_year_default_result = data.frame(one_year_default_result)
+five_year_default_result = data.frame(five_year_default_result)
 ```
 
 ```{r}
-# plotting the histogram for the losses 
-result = data.frame(result)
-ggplot(data = result, aes(result)) +
+# Plot the histogram for the 1-year losses 
+ggplot(data = one_year_default_result, aes(one_year_default_result)) +
   geom_histogram(position = "identity") +
   scale_x_continuous(labels = scales::dollar) +
   labs(x = "Total Loss at Default from 500 Loans", y = "Count", 
        title = "Distribution of Total Loss from 500 Loan Portfolio")
 ```
 
+```{r}
+# Plot the histogram for the 5-year losses 
+ggplot(data = one_year_default_result, aes(one_year_default_result)) +
+  geom_histogram(position = "identity") +
+  scale_x_continuous(labels = scales::dollar) +
+  labs(x = "Total Loss at Default from 500 Loans", y = "Count", 
+       title = "Distribution of Total Loss from 500 Loan Portfolio")
+```
 
 
 ```{r, eval = FALSE}
