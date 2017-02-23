@@ -42,6 +42,8 @@ train_with_defaults =
   filter(LoanStatus == "default") %>%
   # Make percentage loss column 
   mutate(percent_loss = GrossChargeOffAmount/GrossApproval) %>%
+  # Filter out percent loss above 1
+  filter(percent_loss <= 1) %>%
   # Remove unecessary variables 
   select(-one_of(cols_to_drop))
   
