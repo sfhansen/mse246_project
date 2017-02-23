@@ -213,7 +213,7 @@ five_year_default_result = data.frame(five_year_default_result)
 ggplot(data = one_year_default_result, aes(one_year_default_result)) +
   geom_histogram(position = "identity") +
   labs(x = "Total Loss at Default from 500 Loans", y = "Count", 
-       title = "Five-Year Expected Loss Distribution from 500 Loan Portfolio")
+       title = "One-Year Expected Loss Distribution from 500 Loan Portfolio")
 ```
 
 ```{r}
