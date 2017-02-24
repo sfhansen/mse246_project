@@ -14,19 +14,234 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE,
                       message = FALSE, cache = TRUE, eval = TRUE)
 ```
 
+```{r}
+# Initialize libraries and input files 
+library(ggrepel)
+library(knitr)
+library(scales)
+library(lubridate)
+library(tidyverse)
+file_in <- "../data/SBA_Loan_data_1.csv"
+
+# Read in data 
+df <- 
+  read_csv(file_in) %>%
+  plyr::rename(replace = c("2DigitNAICS" = "NAICS")) %>%
+  mutate(ApprovalDate = mdy(ApprovalDate))
+```
+
 #Exectutive Summary
 
-- SAM
+In *MS&E 246: Financial Risk Analytics*, our team analyzed a data set of 
+roughly 150,000 loans backed by the US Small Business Administration 
+(SBA) between 1990 and 2014. In doing so, we aimed to implement and test models
+of the risk and loss of loan default. This report summarizes our findings from exploratory data analysis, details our approaches to modeling loan 
+default probability and loss, and presents our methods of estimating
+the loss distributions of tranches backed by a 500-loan portfolio. 
+
+Explore the loan data set to inform model building. Justify your model and the choice of predictor variables. Explore predictor variables beyond those provided in the SBA data set, in particular time-varying risk factors. Also consider linear and nonlinear model alternatives.
 
 #Exploratory Data Analysis
 
-- SAM
+Prior to model building, we explored the data to detect  
+patterns that may provide signal for models of loan default. Because we first
+aimed to build binary response models of default probability, we excluded
+"Exempt" loans from our exploratory analysis. Subsequently, we examined 
+the relationship between default rates and the predictor variables, including
+`Business Type`, `Loan Amount`, `NAICS Code`, and `Loan Term`, among others. 
+
+Further, we collected additional predictor variables such as monthly 
+`GDP`, `Crime Rate`, and `Unemployment Rate` by State, as well as macroeconomic
+predictors such as monthly measures of the `S&P 500`, `Consumer Price Index`, 
+and 14 other votalitity market indicies (see Data Cleaning section for 
+data collection details). We include insights from exploratory analysis of 
+these measures as well. 
+
+##Default Rate vs. Business Type 
+
+First, we examined the relationship between default rate and `Business Type`
+by loan approval year. As shown on the plot below, we observe an interaction
+effect between these three features, such that default rates spiked for 
+loans that were approved around the Great Recession (approximately 2006- 2009). 
+Further, the different trajectories of the 3 curves implies the "individual" 
+`Business Type` suffered greater default rates than coporations and 
+partnerships. Although corporations constitute a greater share of the data set,
+as evidenced by the greater mass in the red circles, they exhibit medium 
+default risk, as compared to the other business types. Taken together, 
+this plot reveals business types were affected differently by the recession,
+offering useful signal for subsequent modeling. 
+
+```{r}
+df %>%
+  group_by(BusinessType, year = year(ApprovalDate)) %>%
+  summarise(count = n(),
+            frac_defaulted = mean(LoanStatus == "CHGOFF")) %>%
+  ggplot(mapping = aes(x = year, y = frac_defaulted, color = BusinessType)) +
+  geom_point(mapping = aes(size = count)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::percent) +
+  scale_size_continuous(name = "Number of Loans",
+                        labels = comma) +
+  scale_color_discrete(name = "Business Type") + 
+  labs(x = "Approval Year", y = "Default Rate",
+       title = "Default Rate vs. Business Type by Approval Year")
+```
+
+##Default Rate by Loan Amount
+
+Second, we examined whether we would observe a similar time-dependent 
+interaction effect between default rate and `Loan Amount`. The plot below 
+reveals that loans of all sizes approved around the Great Recession faced the
+greatest default rates. However, loans of sizes \$500k-\$1m and \$1m-\$2m
+appear to have experienced larger default rates over time compared to smaller
+loans of size \$100k-\$300k and \$300k-\$500k. The spiking behavior of \$1m-\$2m
+loan in 1999 and of loans greater than \$2m seem to be due to small sample 
+sizes, as depicted by circle diameter. Overall, since loans of different sizes
+have different default rate patterns over time, we would also expect 
+the `Loan Amount` feature to offer predictive power. 
+
+```{r}
+loan_labels <- c("(-10,1e+05]" = "< 100k",
+                 "(1e+05,3e+05]" = "100k - 300k",
+                 "(3e+05,5e+05]" = "300k - 500k",
+                 "(5e+05,1e+06]" = "500k - 1m",
+                 "(1e+06,2e+06]" = "1m - 2m",
+                 "(2e+06,4e+06]" = "> 2m")
+df %>%
+  mutate(loan_bin = cut(GrossApproval, 
+                        breaks = c(-10, 100000, 300000, 500000, 
+                                   1000000, 2000000, 4000000)),
+         loan_bin = plyr::revalue(loan_bin, loan_labels),
+         year = year(ApprovalDate)) %>%
+  group_by(loan_bin, year) %>%
+  summarise(count = n(),
+            frac_defaulted = mean(LoanStatus == "CHGOFF")) %>%
+  ggplot(mapping = aes(x = year, y = frac_defaulted, color = loan_bin)) +
+  geom_point(mapping = aes(size = count)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::percent) +
+  scale_size_continuous(name = "Number of Loans",
+                        labels = comma) + 
+  scale_color_discrete(name = "Loan Amount ($)") + 
+  labs(x = "Approval Year", 
+       y = "Default Rate", 
+       title = "Default Rate by Loan Amount")
+```
+
+##Default Rate by NAICS Code
+
+Third, we hypothesized different economic sectors would exhibit 
+different default rates over time. In turn, we extracted the North American 
+Industry Classification System (NAICS) code for each loan and truncated it
+to the first two digits, which represents broad industry classes such as 
+"Agriculture" and "Manufacturing." The following plot shows the default 
+rate for loans of each truncated NAICS code approved in each year between 
+1990-2014. We observe considerable variance in default rates between sectors;
+for instance, codes 72, corresponding to "Accomodation & Food Services", 
+has one of the highest default rates even before the recession. However,
+code 54, corresponding to "Professional, Scientific, and Technical Services,"
+consistently has one the lowest default rates. These patterns are consistent
+with intuition, and underscore the value of including the truncated NAICS code
+as a predictive feature of defaulting. 
+
+```{r}
+df %>%
+  filter(NAICS != "00",
+         NAICS != "99") %>%
+  group_by(NAICS, year = year(ApprovalDate)) %>%
+  summarise(default_rate = mean(LoanStatus == "CHGOFF")) %>%
+  ggplot(mapping = aes(x = year, y = default_rate, color = NAICS)) +
+  geom_point() +
+  geom_line() +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "Approval Year", y = "Default Rate", title = "Default Rate by NAICS Code")
+```
+
+##State GDP vs. Default Rate
+
+- Make plot here
 
 #Modeling Default Probability 
 
+Building upon our exploratory data analysis, we constructed two types of 
+predictive models of loan default probability: binary response models and 
+cox proportional hazards models. Here, we present our approach to fitting
+both model types, including data cleaning, feature engineering, 
+feature selection, hyper-parameter optimization, and evaluation. 
+
 ##Binary Response Models
 
-- SAM
+First, we built binary response models of small-businesses defaulting on loans,
+which estimate the probability that a given loan *ever* defaults. To do so,
+we implemented a machine learning pipeline that: 
+
+1. Performs feature engineering;
+2. Splits the data into train and test sets;
+3. Normalizes continuous features;
+4. Selects features using recursive feature elimination;
+5. Trains binary response predictive models, including LASSO and random 
+forests. 
+
+Lastly, we evaluate the performance of these models on resampled partitions 
+of the training data, and on a held-out test set in terms of AUC, sensitivity, 
+and calibration. 
+
+###Feature Engineering
+
+Building on insights derived from exploratory data analysis,
+we engineered the following features from the raw data: 
+
+- `NAICS_code`: truncated to the first two digits of the NAICS code;
+- `subprogram`: condensed infrequent factor levels into "other" category;
+- `approval_year`: extracted year from loan approval datetime object.
+
+In effect, these features represent dimensionality reduction of factors 
+with many levels. For instance, there are 1,239 unique NAICS six-digit NAICS
+codes in the raw data, yet only 25 unique 2-digit codes. Although we lose 
+fine-grained detail by truncating the NAICS code, we aimed to optimize our
+models by reducing variance introduced by high dimensionality. 
+
+In addition to engineering features from the raw data, we also incorporated 
+data from external sources, including monthly State-based measures of 
+crime rate, GDP, and unemployment rate. We also joined in macroeconomic data, 
+including monthly snapshots of the `S&P 500`, `Consumer Price Index`, 
+and 14 other votalitity market indicies. 
+
+- BEN: Fill in where the data came from and any other important info 
+
+###Preprocessing
+
+After engineering features and joining in external data sources, 
+we applied several preprocessing steps to our main data frame.
+First, we centered and scaled the continuous predictors to apply regularization techniques during the modeling phase. Doing so adjusted for variables being
+on different scales; for example, `Gross Approval` 
+varies in dollar amounts from \$30,000  to \$4,000,000, whereas 
+`Term in Months` ranges from 1 to 389. Second, we applied a filter to remove 
+features with near zero variance to eliminate predictors that do not offer 
+meaningful signal. 
+
+```{r}
+# Define unnecessary videos 
+vars_to_drop <- c("GrossChargeOffAmount", "ChargeOffDate", 
+                             "ApprovalDate", "first_zip_digit")
+
+# Remove unnecesary features for modeling 
+train <- train %>% select(-one_of(vars_to_drop))
+test <- test %>% select(-one_of(vars_to_drop))
+```
+
+```{r}
+# Define pre-processing steps to apply to training data
+# preProcessSteps <- c("center", "scale") "pca"? 
+preProcessSteps <- c("center", "scale", "nzv")
+
+# Apply same pre-processing steps to the test set
+preProcessObject <- preProcess(train, method = preProcessSteps)
+train <- predict(preProcessObject, train)
+test <- predict(preProcessObject, test)
+```
+
+
 
 ##Cox Proportional Hazards Models 
 
