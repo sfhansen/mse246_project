@@ -10,24 +10,36 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, 
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, 
                       message = FALSE, cache = TRUE, eval = TRUE)
 ```
 
 ```{r}
-# Initialize libraries and input files 
+# Initialize libraries 
 library(ggrepel)
 library(knitr)
-library(scales)
 library(lubridate)
+library(caret)
+library(stringr)
+library(scales)
+library(plotROC)
+library(pROC)
 library(tidyverse)
-file_in <- "../data/SBA_Loan_data_1.csv"
 
-# Read in data 
-df <- 
-  read_csv(file_in) %>%
+# Initialize input files 
+train_file_in <- "../data/train.rds"
+test_file_in <- "../data/test.rds"
+eda_file_in <- "../data/SBA_Loan_data_1.csv"
+
+# Read in data for EDA
+eda_data <- 
+  read_csv(eda_file_in) %>%
   plyr::rename(replace = c("2DigitNAICS" = "NAICS")) %>%
   mutate(ApprovalDate = mdy(ApprovalDate))
+
+# Read in train and test data 
+train <- read_rds(train_file_in)
+test <- read_rds(test_file_in)
 ```
 
 #Exectutive Summary
@@ -39,16 +51,14 @@ of the risk and loss of loan default. This report summarizes our findings from e
 default probability and loss, and presents our methods of estimating
 the loss distributions of tranches backed by a 500-loan portfolio. 
 
-Explore the loan data set to inform model building. Justify your model and the choice of predictor variables. Explore predictor variables beyond those provided in the SBA data set, in particular time-varying risk factors. Also consider linear and nonlinear model alternatives.
-
 #Exploratory Data Analysis
 
-Prior to model building, we explored the data to detect  
-patterns that may provide signal for models of loan default. Because we first
-aimed to build binary response models of default probability, we excluded
-"Exempt" loans from our exploratory analysis. Subsequently, we examined 
-the relationship between default rates and the predictor variables, including
-`Business Type`, `Loan Amount`, `NAICS Code`, and `Loan Term`, among others. 
+Prior to model building, we explored the data to detect patterns that may 
+provide signal for models of loan default. Because we first aimed to build 
+binary response models of default probability, we excluded "Exempt" loans from 
+our exploratory analysis. Subsequently, we examined the relationship between 
+default rates and the predictor variables, including `Business Type`, 
+`Loan Amount`, `NAICS Code`, and `Loan Term`, among others. 
 
 Further, we collected additional predictor variables such as monthly 
 `GDP`, `Crime Rate`, and `Unemployment Rate` by State, as well as macroeconomic
@@ -72,7 +82,7 @@ this plot reveals business types were affected differently by the recession,
 offering useful signal for subsequent modeling. 
 
 ```{r}
-df %>%
+eda_data %>%
   group_by(BusinessType, year = year(ApprovalDate)) %>%
   summarise(count = n(),
             frac_defaulted = mean(LoanStatus == "CHGOFF")) %>%
@@ -107,7 +117,7 @@ loan_labels <- c("(-10,1e+05]" = "< 100k",
                  "(5e+05,1e+06]" = "500k - 1m",
                  "(1e+06,2e+06]" = "1m - 2m",
                  "(2e+06,4e+06]" = "> 2m")
-df %>%
+eda_data %>%
   mutate(loan_bin = cut(GrossApproval, 
                         breaks = c(-10, 100000, 300000, 500000, 
                                    1000000, 2000000, 4000000)),
@@ -145,7 +155,7 @@ with intuition, and underscore the value of including the truncated NAICS code
 as a predictive feature of defaulting. 
 
 ```{r}
-df %>%
+eda_data %>%
   filter(NAICS != "00",
          NAICS != "99") %>%
   group_by(NAICS, year = year(ApprovalDate)) %>%
@@ -203,8 +213,8 @@ models by reducing variance introduced by high dimensionality.
 
 In addition to engineering features from the raw data, we also incorporated 
 data from external sources, including monthly State-based measures of 
-crime rate, GDP, and unemployment rate. We also joined in macroeconomic data, 
-including monthly snapshots of the `S&P 500`, `Consumer Price Index`, 
+crime rate, GDP, and unemployment rate. We also joined in time-varying risk 
+factors, including monthly snapshots of the `S&P 500`, `Consumer Price Index`, 
 and 14 other votalitity market indicies. 
 
 - BEN: Fill in where the data came from and any other important info 
