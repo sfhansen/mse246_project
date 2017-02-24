@@ -27,7 +27,7 @@ default rates and the predictor variables, including `Business Type`,
 Further, we collected additional predictor variables such as monthly 
 `GDP`, `Crime Rate`, and `Unemployment Rate` by State, as well as macroeconomic
 predictors such as monthly measures of the `S&P 500`, `Consumer Price Index`, 
-and 14 other votalitity market indicies (see Data Cleaning section for 
+and 14 other volatility market indices (see Data Cleaning section for 
 data collection details). We include insights from exploratory analysis of 
 these measures as well. 
 
@@ -38,7 +38,7 @@ by loan approval year. As shown on the plot below, we observe an interaction
 effect between these three features, such that default rates spiked for 
 loans that were approved around the Great Recession (approximately 2006- 2009). 
 Further, the different trajectories of the 3 curves implies the "individual" 
-`Business Type` suffered greater default rates than coporations and 
+`Business Type` suffered greater default rates than corporations and 
 partnerships. Although corporations constitute a greater share of the data set,
 as evidenced by the greater mass in the red circles, they exhibit medium 
 default risk, as compared to the other business types. Taken together, 
@@ -71,7 +71,7 @@ to the first two digits, which represents broad industry classes such as
 "Agriculture" and "Manufacturing." The following plot shows the default 
 rate for loans of each truncated NAICS code approved in each year between 
 1990-2014. We observe considerable variance in default rates between sectors;
-for instance, codes 72, corresponding to "Accomodation & Food Services", 
+for instance, codes 72, corresponding to "Accommodation & Food Services", 
 has one of the highest default rates even before the recession. However,
 code 54, corresponding to "Professional, Scientific, and Technical Services,"
 consistently has one the lowest default rates. These patterns are consistent
@@ -116,37 +116,93 @@ we engineered the following features from the raw data:
 
 - `NAICS_code`: truncated to the first two digits of the NAICS code;
 - `subprogram`: condensed infrequent factor levels into "other" category;
-- `approval_year`: extracted year from loan approval datetime object.
+- `approval_year`: extracted year from loan approval date-time object.
+- `SameLendingState`: created flag for whether borrower received loan from in-state; 
+- `MultiTimeBorrower`: created flag for whether loan recipient is multi-time borrower;
+- `ThirdPartyLender` created flag for whether borrower received third party aide. 
 
 In effect, these features represent dimensionality reduction of factors 
 with many levels. For instance, there are 1,239 unique NAICS six-digit NAICS
 codes in the raw data, yet only 25 unique 2-digit codes. Although we lose 
 fine-grained detail by truncating the NAICS code, we aimed to optimize our
-models by reducing variance introduced by high dimensionality. 
+models by reducing variance introduced by high dimensionality. After applying
+such dimension reductions, we eliminated extraneous variables, such as the 
+Borrower's Zip Code and the Project's State, where were used to engineer
+features. 
 
-In addition to engineering features from the raw data, we also incorporated 
+In addition to constructing features from the raw data, we also incorporated 
 data from external sources, including monthly State-based measures of 
 crime rate, GDP, and unemployment rate. We also joined in time-varying risk 
 factors, including monthly snapshots of the `S&P 500`, `Consumer Price Index`, 
-and 14 other votalitity market indicies. 
+and 14 other volatility market indices. 
 
 - BEN: Fill in where the data came from and any other important info 
 
-###Preprocessing
+###Data Splitting 
+
+We randomly partitioned the data into 70% training and 30% test sets. 
+This approach does not implement a time-based split, but rather a random 
+sampling of observations over the entire 1990-2014 window. We adopted this 
+splitting approach because we were interested in capturing the signal 
+of the Great Recession within our models. Further, we did not create a 
+validation set because we performed feature selection and hyper-parameter
+optimization using cross-validation on the training set. 
+
+###Data Preprocessing
 
 After engineering features and joining in external data sources, 
 we applied several preprocessing steps to our main data frame.
-First, we centered and scaled the continuous predictors to apply regularization techniques during the modeling phase. Doing so adjusted for variables being
+First, we centered and scaled the continuous predictors to apply regularization 
+techniques during the modeling phase. Doing so adjusted for variables being
 on different scales; for example, `Gross Approval` 
 varies in dollar amounts from \$30,000  to \$4,000,000, whereas 
 `Term in Months` ranges from 1 to 389. Second, we applied a filter to remove 
 features with near zero variance to eliminate predictors that do not offer 
 meaningful signal. 
 
+###Feature Selection
+
+To perform feature selection, we used recursive feature elimination
+with 10-fold cross-validation. This method uses random forests to iteratively
+remove variables with low variable importance, as measured by mean increase 
+in out-of-bag area-under-the-curve (AUC). In other words, variables that 
+do not contribute to significant improvements in AUC are eliminated. We
+performed a grid search over the number of potential features to determine 
+how many features to include. Note that factors were converted to separate dummy 
+variables using a one-hot encoder. 
 
 
 
+The following plot shows that recursive feature selection 
+chose 122 
+variables because AUC is maximized (see plot below). In effect, all variables
+were kept because they offered predictive power regarding loan defaults. 
+![](final_report_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
 
+The importances of the top 10 selected features are shown in the plot below.
+We observe that State GDP, a monthly time-dependent risk factor, is the most 
+important feature, meaning it led to the greatest average increase in AUC
+across cross-validation iterations. State unemployment rate and crime rate 
+are also highly important, suggesting local time-dependent risk factors 
+are the most predictive of whether a loan defaults. 
+
+The importance of NAICS code 72, corresponding to 
+"Accommodation & Food Services", is consistent with our exploratory 
+data analysis finding that the sector is especially risk prone. Borrower States
+such as Michigan, California,and Florida also offer predictive power of 
+defaulting. Lastly, the importances of the Collar Index (CLL) and Iron 
+Butterfly Index (BFLY) imply market volatility measures also improve 
+the discrimination loan defaults. 
+
+![](final_report_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
+
+###Model Fitting 
+
+Using these selected features, we fit models predicting the binary outcome
+of whether a small business defaults on a loan. To tune hyper-parameters,
+we used 10-fold cross-validation with the one standard-error rule, which selects
+parameters that obtain the highest cross-validated AUC within one standard error
+of the maximum. 
 
 
 ##Cox Proportional Hazards Models 
