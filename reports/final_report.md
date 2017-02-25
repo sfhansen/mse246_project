@@ -154,11 +154,14 @@ After engineering features and joining in external data sources,
 we applied several preprocessing steps to our main data frame.
 First, we centered and scaled the continuous predictors to apply regularization 
 techniques during the modeling phase. Doing so adjusted for variables being
-on different scales; for example, `Gross Approval` 
-varies in dollar amounts from \$30,000  to \$4,000,000, whereas 
-`Term in Months` ranges from 1 to 389. Second, we applied a filter to remove 
-features with near zero variance to eliminate predictors that do not offer 
-meaningful signal. 
+on different scales; for example, `Gross Approval` varies in dollar amounts 
+from \$30,000  to \$4,000,000, whereas `Term in Months` ranges from 1 to 389. 
+Second, we applied a filter to remove features with near zero variance to 
+eliminate predictors that do not offer meaningful signal. 
+
+
+
+
 
 ###Feature Selection
 
@@ -177,7 +180,8 @@ The following plot shows that recursive feature selection
 chose 122 
 variables because AUC is maximized (see plot below). In effect, all variables
 were kept because they offered predictive power regarding loan defaults. 
-![](final_report_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
+
+![](final_report_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
 
 The importances of the top 10 selected features are shown in the plot below.
 We observe that State GDP, a monthly time-dependent risk factor, is the most 
@@ -194,16 +198,84 @@ defaulting. Lastly, the importances of the Collar Index (CLL) and Iron
 Butterfly Index (BFLY) imply market volatility measures also improve 
 the discrimination loan defaults. 
 
-![](final_report_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
 
 ###Model Fitting 
 
 Using these selected features, we fit models predicting the binary outcome
-of whether a small business defaults on a loan. To tune hyper-parameters,
-we used 10-fold cross-validation with the one standard-error rule, which selects
-parameters that obtain the highest cross-validated AUC within one standard error
-of the maximum. 
+of whether a small business defaults on a loan. We constructed linear and 
+nonlinear models, including a logistic regression model with the elastic net 
+penalty, a random forest classifier, and a gradient boosting machine 
+classifier. To tune hyper-parameters, we used 10-fold cross-validation with the 
+one standard-error rule, which selects parameters that obtain the highest 
+cross-validated AUC within one standard error of the maximum. For each model
+type, we performed a grid search over the hyper-parameters to ensure optimal
+selection.
 
+####Logistic Regression with Elastic Net
+
+AUC was used to select the optimal elastic net model using the one SE rule.
+The final values used for the model were `alpha` = 0.1 and `lambda` = 0.
+
+![](final_report_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
+
+####Random Forest Classifier
+
+AUC was used to select the optimal random forest model using the one SE rule.
+The final value used for the model was `mtry` = 8.
+
+![](final_report_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
+
+####Gradient Boosting Machine Classifier
+
+AUC was used to select the optimal extreme gradient boosting model using 
+the one SE rule. The final values used for the model were `nrounds` = 100, 
+`max_depth` = 6, `eta` = 0.03, `gamma` = 0, `colsample_bytree` = 0.4, 
+`min_child_weight` = 1 and `subsample` = 0.5. 
+
+![](final_report_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
+
+###Model Evaluation 
+
+####In-Sample Evaluation 
+
+#####Training AUC and Sensitivity of Best Models 
+
+The following plot compares averaged **training** area under the ROC curve 
+and sensitivity across the model types with optimized parameters.
+
+![](final_report_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
+
+#####Distribution of Resampled Training AUC, Sensitivity, and Specificity 
+
+To examine the spread of **training** area under the ROC curve,
+sensitivity, and specificity across model types, we leverage the resampled
+data generated during the cross-valiation of modeling fitting to plot 
+their respective distributions.  
+
+![](final_report_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
+
+#####Training ROC Curves 
+
+Lastly, we can examine the training ROC curves by model type. 
+
+![](final_report_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
+
+####Out-of-Sample Evaluation 
+
+#####Test ROC Curves 
+
+
+
+![](final_report_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
+
+#####Test Calibration Plots
+
+The following calibration plots depict the extent to which our models' 
+predicted probabilities of default align with the actual probabilities of
+default. 
+
+![](final_report_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
 
 ##Cox Proportional Hazards Models 
 
