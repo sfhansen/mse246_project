@@ -102,8 +102,7 @@ we implemented a machine learning pipeline that:
 2. Splits the data into train and test sets;
 3. Normalizes continuous features;
 4. Selects features using recursive feature elimination;
-5. Trains binary response predictive models, including LASSO and random 
-forests. 
+5. Trains binary response predictive models. 
 
 Lastly, we evaluate the performance of these models on resampled partitions 
 of the training data, and on a held-out test set in terms of AUC, sensitivity, 
