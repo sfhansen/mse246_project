@@ -303,10 +303,10 @@ are the most predictive of whether a loan defaults.
 The importance of NAICS code 72, corresponding to 
 "Accommodation & Food Services", is consistent with our exploratory 
 data analysis finding that the sector is especially risk prone. Borrower States
-such as Michigan, California,and Florida also offer predictive power of 
+such as Michigan, California, and Florida also offer predictive power regarding 
 defaulting. Lastly, the importances of the Collar Index (CLL) and Iron 
 Butterfly Index (BFLY) imply market volatility measures also improve 
-the discrimination loan defaults. 
+the discrimination of loan defaults. 
 
 ```{r}
 data_frame(predictor = rownames(varImp(rfe.results)), 
@@ -337,9 +337,18 @@ selection.
 AUC was used to select the optimal elastic net model using the one SE rule.
 The final values used for the model were `alpha` = 0.1 and `lambda` = 0.
 
-```{r, echo = FALSE, fig.width=6, fig.height=6}
+```{r, echo = FALSE}
 elastic.fit <- read_rds("../models/elastic.fit.rds")
-plot(elastic.fit)
+elastic.fit$results %>%
+  ggplot(mapping = aes(x = alpha, y = ROC, color = factor(lambda))) +
+  geom_point() +
+  geom_line() +
+  scale_color_discrete(name = "Lambda Penalty") +
+  scale_x_continuous(breaks = seq(0, 1, 0.1)) +
+  scale_y_continuous(breaks = seq(0.8, 0.83, 0.005)) +
+  labs(x = "Mixing Percentage (Alpha)",
+       y = "AUC (Cross-Validated)",
+       title = "Logistic Regression Hyper-Parameter Optimization")
 ```
 
 ####Random Forest Classifier
@@ -347,9 +356,16 @@ plot(elastic.fit)
 AUC was used to select the optimal random forest model using the one SE rule.
 The final value used for the model was `mtry` = 8.
 
-```{r, echo = FALSE, fig.width=6, fig.height=6}
+```{r, echo = FALSE}
 rf.fit <- read_rds("../models/rf.fit.rds")
-plot(rf.fit)
+rf.fit$results %>%
+  ggplot(mapping = aes(x = mtry, y = ROC)) +
+  geom_point() +
+  geom_line() +
+  scale_color_discrete(name = "Lambda Penalty") +
+  labs(x = "Number of Randomly Selected Predictors",
+       y = "AUC (Cross-Validated)",
+       title = "Random Forest Hyper-Parameter Optimization")
 ```
 
 ####Gradient Boosting Machine Classifier
@@ -359,9 +375,21 @@ the one SE rule. The final values used for the model were `nrounds` = 100,
 `max_depth` = 6, `eta` = 0.03, `gamma` = 0, `colsample_bytree` = 0.4, 
 `min_child_weight` = 1 and `subsample` = 0.5. 
 
-```{r, echo = FALSE, fig.width=6, fig.height=6}
+```{r, echo = FALSE}
 xgb.fit <- read_rds("../models/xgb.fit.rds")
-plot(xgb.fit)
+subsamp_labs = c("0.5" = "Subsample = 50%",
+                 "0.75" = "Subsample = 75%",
+                 "1" = "Subsample = 100%")
+xgb.fit$results %>%
+  dmap_at("subsample", as.factor) %>%
+  ggplot(mapping = aes(x = max_depth, y = ROC, color = factor(colsample_bytree))) +
+  geom_point() +
+  geom_line() +
+  facet_grid(subsample~., labeller = labeller(subsample = subsamp_labs)) +
+  scale_color_discrete(name = "Fraction of randomly\nselected features\nfor each tree") +
+  labs(x = "Maximum Tree Depth", 
+       y = "AUC (Cross-Validated)",
+       title = "Gradient Boosting Hyper-Parameter Optimization")
 ```
 
 ###Model Evaluation 

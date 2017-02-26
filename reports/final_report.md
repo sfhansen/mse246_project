@@ -193,10 +193,10 @@ are the most predictive of whether a loan defaults.
 The importance of NAICS code 72, corresponding to 
 "Accommodation & Food Services", is consistent with our exploratory 
 data analysis finding that the sector is especially risk prone. Borrower States
-such as Michigan, California,and Florida also offer predictive power of 
+such as Michigan, California, and Florida also offer predictive power regarding 
 defaulting. Lastly, the importances of the Collar Index (CLL) and Iron 
 Butterfly Index (BFLY) imply market volatility measures also improve 
-the discrimination loan defaults. 
+the discrimination of loan defaults. 
 
 ![](final_report_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
 
