@@ -334,8 +334,12 @@ selection.
 
 ####Logistic Regression with Elastic Net
 
-AUC was used to select the optimal elastic net model using the one SE rule.
-The final values used for the model were `alpha` = 0.1 and `lambda` = 0.
+First, AUC was used to select the optimal logistic regression model with an
+elastic net penalty using the one standard-error rule. As shown on the plot 
+below, the final values used for the model were `alpha` = 0.1 and `lambda` = 0,
+indicated by the spike in the red curve at `alpha` = 0.1. This implies the 
+optimal model used the ridge penalty more than the LASSO penalty with minimal 
+regularization. 
 
 ```{r, echo = FALSE}
 elastic.fit <- read_rds("../models/elastic.fit.rds")
@@ -353,8 +357,11 @@ elastic.fit$results %>%
 
 ####Random Forest Classifier
 
-AUC was used to select the optimal random forest model using the one SE rule.
-The final value used for the model was `mtry` = 8.
+Second, AUC was used to select the optimal random forest model, which selected 
+`mtry` = 8 as the best parameter. This means 8 random predictors were chosen 
+to build each tree of the random forest. The plot below shows steadily declining
+AUC as the number of randomly chosen predictors increases, indicating that
+the optimal model is sparsest. 
 
 ```{r, echo = FALSE}
 rf.fit <- read_rds("../models/rf.fit.rds")
@@ -370,10 +377,15 @@ rf.fit$results %>%
 
 ####Gradient Boosting Machine Classifier
 
-AUC was used to select the optimal extreme gradient boosting model using 
-the one SE rule. The final values used for the model were `nrounds` = 100, 
+Third, AUC was similarly used to select the optimal gradient boosting machine 
+(GBM) model. The final values used for the model were `nrounds` = 100, 
 `max_depth` = 6, `eta` = 0.03, `gamma` = 0, `colsample_bytree` = 0.4, 
-`min_child_weight` = 1 and `subsample` = 0.5. 
+`min_child_weight` = 1 and `subsample` = 0.5. This means that the tuning 
+procedure utilized a learning rate of 0.03 and a minimum loss reduction of 0, 
+resulting in the optimal model with 100 trees of maximum depth 6 that subsamples
+50% of the observations and 40% of the features for each tree. This combination
+of optimal hyper-parameters in shown by the spike of the red curve in the first 
+subplot at the maximum tree depth of 6.  
 
 ```{r, echo = FALSE}
 xgb.fit <- read_rds("../models/xgb.fit.rds")
@@ -394,12 +406,20 @@ xgb.fit$results %>%
 
 ###Model Evaluation 
 
+After we optimized the hyper-parameters of our models, we evaluated the models  
+using in-sample and out-of-sample metrics, including AUC, sensitivity,
+ROC curves, and calibration. To do so, we used these "best" models to 
+predicts loan defaults in the training and test sets. 
+
 ####In-Sample Evaluation 
 
 #####Training AUC and Sensitivity of Best Models 
 
 The following plot compares averaged **training** area under the ROC curve 
-and sensitivity across the model types with optimized parameters.
+and sensitivity across the model types with optimized parameters. We observe
+that the gradient boosting machine classifier has the highest AUC and 
+sensitivity, whereas the logistic regression model with the elastic net penalty
+performs the worst. 
 
 ```{r}
 # Evaluate performance of each model on training data
@@ -414,7 +434,7 @@ bind_rows(getTrainPerf(elastic.fit),
   ggplot(mapping = aes(x = TrainSens, y = TrainROC, label = method)) +
   geom_point() +
   geom_text_repel() +
-  labs(x = "Train Sensitivity", y = "Train AUC", 
+  labs(x = "Train Sensitivity", y = "Training AUC", 
        title = "Training Sensitivity vs. AUC by Model Type")
 ```
 
@@ -422,8 +442,14 @@ bind_rows(getTrainPerf(elastic.fit),
 
 To examine the spread of **training** area under the ROC curve,
 sensitivity, and specificity across model types, we leverage the resampled
-data generated during the cross-valiation of modeling fitting to plot 
-their respective distributions.  
+data generated during the cross-validation of modeling fitting to plot 
+their respective distributions. In the following plot, we observe that 
+the GBM classifier has the highest median AUC, sensitivity, and specificity,
+as well as the smallest spread. Although the random forest classifier has 
+comparable sensitivity, it exhibits enormous variance compared to the other 
+models, suggesting it is prone to overfitting. For this reason, the logistic
+regression classifier (a linear model) outperforms the random forest classifier
+(a non-linear model) in terms of AUC and specificity. 
 
 ```{r, fig.width=9, fig.height=6}
 # Generate resamples from data 
@@ -449,6 +475,11 @@ resamps$values %>%
 #####Training ROC Curves 
 
 Lastly, we can examine the training ROC curves by model type. 
+We observe that the random forest model has a near-perfect ROC curve,
+which also implies it is overfitting to the training data. The GBM model again
+performs worse than the random forest model on the training data, but likely 
+because it is avoiding overfitting. The logistic regression model with the 
+elastic net penalty performs the worst. 
 
 ```{r, fig.width=9, fig.height=6}
 # Evaluate performance of trained models on training set 
@@ -494,6 +525,13 @@ trainResults %>%
 
 #####Test ROC Curves 
 
+We evaluated our best models on a held-out test set representing 30% of the 
+original data. The ROC curves below reveal that the GBM model performed 
+the best on the test set, followed by the logistic regression model, and 
+finally, the random forest classifier. The weak performance of the random forest 
+classifier is likely due to overfitting on the training set. Nevertheless, 
+the all models achieve good performance over "random guessing" baselines. 
+
 ```{r}
 # Evaluate performance of trained models on test set 
 testResults <- data.frame(true_value = test$LoanStatus)
@@ -538,11 +576,20 @@ testResults %>%
 
 #####Test Calibration Plots
 
-The following calibration plots depict the extent to which our models' 
-predicted probabilities of default align with the actual probabilities of
-default. 
+Lastly, we evaluated the calibration of the our models' predicted probabilities
+of loan default against the observed fraction of defaults in the data. 
+A point on the dashed line means that the model's predicted probability
+of default matched the empirical default rate. Points to the right of the line 
+mean the model overestimated the default probability, whereas points to the 
+left mean the model underestimated the default probability. 
 
-```{r, fig.width=9, fig.height=6, eval = TRUE}
+The GBM model achieves the best calibration because its points follow 
+the dashed line most closely. The logistic regression model with the elastic net
+penalty achieves comparable performance; however, the random forest classifier
+tends to overestimate default probabilities. Again, this weaker performance 
+is likely due to overfitting. 
+
+```{r, fig.width=10, fig.height=6}
 # Make calibration plots, facetted by model type
 pred_prob_midpoints <- data_frame(midpoint = c(0, 0, rep(seq(0.05, 0.875, 0.05), each = 3), 0.9, 0.95, 1))
 
@@ -571,6 +618,18 @@ testResults %>%
        title = "Calibration Plot: Predicted vs. Observed Default Probability") +
   facet_wrap(~method, labeller = labeller(method = model_labels))
 ```
+
+The overfitting of the random forest classifier may be due to the fact that 
+too many features were randomly selected to build trees at each
+iteration. Our hyper-parameter optimization approach performed a grid search
+over possible values of `mtry`, representing the number of features 
+randomly chosen to build each tree in the forest. However, our grid may have
+not been large enough, since the minimum value of `mtry` was chosen. 
+However, computational resources limited our ability to refit models 
+over a larger search space. 
+
+Moreover, the gradient boosting machine classifier demonstrated the best
+performance on the test set in terms of AUC and calibration.  
 
 ##Cox Proportional Hazards Models 
 
