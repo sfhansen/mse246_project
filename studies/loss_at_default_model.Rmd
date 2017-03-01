@@ -249,16 +249,19 @@ ggplot(data = five_year_default_result, aes(five_year_default_result)) +
 ##Compute Value-at-Risk
 ```{r}
 var1yr = data.frame(
-  VaR(-one_year_default_result$Percentage, p=0.95)[1],
-  VaR(-one_year_default_result$Percentage, p=0.95)[1]*portfolio_nominal,
-  VaR(-one_year_default_result$Percentage, p=0.99)[1],
-  VaR(-one_year_default_result$Percentage, p=0.99)[1]*portfolio_nominal)
+  -VaR(-one_year_default_result$Percentage, p=0.95)[1],
+  -VaR(-one_year_default_result$Percentage, p=0.95)[1]*portfolio_nominal,
+  -VaR(-one_year_default_result$Percentage, p=0.99)[1],
+  -VaR(-one_year_default_result$Percentage, p=0.99)[1]*portfolio_nominal)
 
 var5yr = data.frame(
-  VaR(-five_year_default_result$Percentage, p=0.95)[1],
-  VaR(-five_year_default_result$Percentage, p=0.95)[1]*portfolio_nominal,
-  VaR(-five_year_default_result$Percentage, p=0.99)[1],
-  VaR(-five_year_default_result$Percentage, p=0.99)[1]*portfolio_nominal)
+  -VaR(-five_year_default_result$Percentage, p=0.95)[1],
+  -VaR(-five_year_default_result$Percentage, p=0.95)[1]*portfolio_nominal,
+  -VaR(-five_year_default_result$Percentage, p=0.99)[1],
+  -VaR(-five_year_default_result$Percentage, p=0.99)[1]*portfolio_nominal)
+
+-VaR(-one_year_default_result$Percentage, p=0.95)[1]
+mean(one_year_default_result$Percentage)
 ```
 
 
@@ -274,6 +277,21 @@ TO DO:
 
 - Measure the risk in terms of the Average VaR at the 95% and 99% levels 
 (include confidence bands for your estimates). 
+
+```{r}
+ETL1yr = data.frame(
+  -ETL(-one_year_default_result$Percentage, p=0.95)[1],
+  -ETL(-one_year_default_result$Percentage, p=0.95)[1]*portfolio_nominal,
+  -ETL(-one_year_default_result$Percentage, p=0.99)[1],
+  -ETL(-one_year_default_result$Percentage, p=0.99)[1]*portfolio_nominal)
+
+ETL5yr = data.frame(
+  -ETL(-five_year_default_result$Percentage, p=0.95)[1],
+  -ETL(-five_year_default_result$Percentage, p=0.95)[1]*portfolio_nominal,
+  -ETL(-five_year_default_result$Percentage, p=0.99)[1],
+  -ETL(-five_year_default_result$Percentage, p=0.99)[1]*portfolio_nominal)
+
+```
 
 ```{r, eval = FALSE, echo = FALSE}
 # COMMENTED OUT BECAUSE NOT USING THIS NOW 
