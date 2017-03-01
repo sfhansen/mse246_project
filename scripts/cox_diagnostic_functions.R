@@ -244,6 +244,32 @@ pOfDefaultOverNext.multObs <- function(fit_mod, new_data, loan_ages, time_ahead)
     return(out)
 }
 
+populate_predict_mtx <- function(p,thresh){
+    mtx = matrix(0,nr=length(p),nc=length(thresh))
+    for( idx in 1:ncol(mtx) ){
+        mtx[,idx] = ifelse(p > thresh[idx], 1, 0)
+    }
+    mtx
+}
+
+calculate_tpr <- function(mtx, actual){
+    inner_tpr <- function(pred, actual){
+        sum(pred & actual)/sum(actual)
+    }
+    unlist(lapply(data.frame(mtx),inner_tpr,
+                  actual=actual))
+}
+
+calculate_fpr <- function(mtx, actual){
+    inner_fpr <- function(pred, actual){
+        sum(pred & !actual)/sum(!actual)
+    }
+    unlist(lapply(data.frame(mtx),inner_fpr,
+                  actual=actual))
+}
+
+
+
 ##Predict probability of default between t1 and t2 (loan age)
 ##This gives general S(t1) - S(t2) = P(t1 < T < t2) 
                                         #pOfDefaultBtwn(cox_fit, dt_test_curr[1:100,], 1000, 7000)

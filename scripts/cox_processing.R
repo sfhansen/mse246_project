@@ -70,19 +70,25 @@ time_to_status = time_to_status[loanTermCat=='20yr']
 if(opt$portfolio_option){
     dt = data.frame(dt)
 
+    curr_date = as.Date('2010-02-01','%Y-%m-%d')
+    loan_age = curr_date - dt$ApprovalDate
+    
+    age_idx = which(loan_age < 365.25*15)
+    dt = dt[age_idx,]
+    time_to_status = time_to_status[age_idx]
+    status = status[age_idx]
+    
+    dt = extractCurrentLoans(curr_date,
+                             dt,
+                             time_to_status,
+                             status)        
     set.seed(353)
-    sample_idx_1 = sample(which(status==1),250,replace=F)
-    sample_idx_0 = sample(which(status==0),500,replace=F)
-    sample_idx = union(sample_idx_1, sample_idx_0)
+    sample_idx = sample(1:nrow(dt),500,replace=F)
     
     dt = dt[sample_idx,]
     status = status[sample_idx]
     time_to_status = time_to_status[sample_idx]
     
-    dt = extractCurrentLoans(as.Date('2010-02-01','%Y-%m-%d'),
-                             dt,
-                             time_to_status,
-                             status)
     saveRDS(dt,file=env_out)
 }else{
 
