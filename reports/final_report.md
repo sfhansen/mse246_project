@@ -246,6 +246,18 @@ subplot at the maximum tree depth of 6.
 
 ![](final_report_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
 
+Examining the variable importance of the final GBM model, we observe the most 
+important feature for predicting defaults is the Collar Index (CLL), which is
+"designed to provide investors with insights as to how one might protect an 
+investment in S&P 500 stocks against steep market declines" [CBOE](http://www.cboe.com/products/strategy-benchmark-indexes/collar-indexes/cboe-s-p-500-95-110-collar-index-cll). Other important features include the national consumer price index (CPI), 
+State GDP, crime, and unemployment rates, loan amount, and Chicago Board Options
+Exchange (CBOE) indicies including the Butterfly Index (BFLY), the Iron Condor 
+Index (CNDR), and the Volatility index (VIX). Such variables are "important"
+because they lead to the greatest improvements to cross-validated AUC 
+across boosting iterations. 
+
+![](final_report_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
+
 ###Model Evaluation 
 
 After we optimized the hyper-parameters of our models, we evaluated the models  
@@ -263,7 +275,7 @@ that the gradient boosting machine classifier has the highest AUC and
 sensitivity, whereas the logistic regression model with the elastic net penalty
 performs the worst. 
 
-![](final_report_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
 
 #####Distribution of Resampled Training AUC, Sensitivity, and Specificity 
 
@@ -278,7 +290,7 @@ models, suggesting it is prone to overfitting. For this reason, the logistic
 regression classifier (a linear model) outperforms the random forest classifier
 (a non-linear model) in terms of AUC and specificity. 
 
-![](final_report_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
 
 #####Training ROC Curves 
 
@@ -289,7 +301,7 @@ performs worse than the random forest model on the training data, but likely
 because it is avoiding overfitting. The logistic regression model with the 
 elastic net penalty performs the worst. 
 
-![](final_report_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
 
 ####Out-of-Sample Evaluation 
 
@@ -304,7 +316,7 @@ the all models achieve good performance over "random guessing" baselines.
 
 
 
-![](final_report_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
 
 #####Test Calibration Plots
 
@@ -321,7 +333,7 @@ penalty achieves comparable performance; however, the random forest classifier
 tends to overestimate default probabilities. Again, this weaker performance 
 is likely due to overfitting. 
 
-![](final_report_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-19-1.png)<!-- -->
 
 The overfitting of the random forest classifier may be due to the fact that 
 too many features were randomly selected to build trees at each

@@ -2,11 +2,13 @@
 title: "MS&E 246 Final Report"
 author: "Samuel Hansen, Theo Vadpey, Alex Elkrief, Ben Ertringer"
 date: "2/23/2017"
-output: 
+output:
   html_document:
+    keep_md: yes
     number_sections: yes
-    toc: true
-    keep_md: true 
+    toc: yes
+  pdf_document:
+    toc: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -29,6 +31,7 @@ library(tidyverse)
 # Initialize input files 
 train_file_in <- "../data/train.rds"
 test_file_in <- "../data/test.rds"
+full_file_in <- "../data/merged.rds"
 eda_file_in <- "../data/SBA_Loan_data_1.csv"
 
 # Read in data for EDA
@@ -36,6 +39,10 @@ eda_data <-
   read_csv(eda_file_in) %>%
   plyr::rename(replace = c("2DigitNAICS" = "NAICS")) %>%
   mutate(ApprovalDate = mdy(ApprovalDate))
+
+# Read in data for EDA with external variables 
+full_data <-
+  read_rds(full_file_in)
 
 # Read in train and test data 
 train <- read_rds(train_file_in)
@@ -401,6 +408,28 @@ xgb.fit$results %>%
   labs(x = "Maximum Tree Depth", 
        y = "AUC (Cross-Validated)",
        title = "Gradient Boosting Hyper-Parameter Optimization")
+```
+
+Examining the variable importance of the final GBM model, we observe the most 
+important feature for predicting defaults is the Collar Index (CLL), which is
+"designed to provide investors with insights as to how one might protect an 
+investment in S&P 500 stocks against steep market declines" [CBOE](http://www.cboe.com/products/strategy-benchmark-indexes/collar-indexes/cboe-s-p-500-95-110-collar-index-cll). Other important features include the national consumer price index (CPI), 
+State GDP, crime, and unemployment rates, loan amount, and Chicago Board Options
+Exchange (CBOE) indicies including the Butterfly Index (BFLY), the Iron Condor 
+Index (CNDR), and the Volatility index (VIX). Such variables are "important"
+because they lead to the greatest improvements to cross-validated AUC 
+across boosting iterations. 
+
+```{r}
+data_frame(predictor = rownames(varImp(xgb.fit)$importance), 
+           var_imp = varImp(xgb.fit)$importance$Overall) %>%
+  top_n(10) %>%
+  ggplot(mapping = aes(x = reorder(predictor, var_imp), y = var_imp)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(x = "", 
+       y = "Variable Importance", 
+       title = "Gradient Boosting Machine Variable Importance")
 ```
 
 ###Model Evaluation 
