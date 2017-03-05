@@ -11,9 +11,10 @@ Samuel Hansen, Theo Vadpey, Alex Elkrief, Ben Ertringer
 In *MS&E 246: Financial Risk Analytics*, our team analyzed a data set of 
 roughly 150,000 loans backed by the US Small Business Administration 
 (SBA) between 1990 and 2014. In doing so, we aimed to implement and test models
-of the risk and loss of loan default. This report summarizes our findings from exploratory data analysis, details our approaches to modeling loan 
+of the risk and loss of loan default. This report summarizes our findings from 
+exploratory data analysis, details our approaches to modeling loan 
 default probability and loss, and presents our methods of estimating
-the loss distributions of tranches backed by a 500-loan portfolio. 
+the loss distributions of tranches backed by a portfolio of loans. 
 
 #Exploratory Data Analysis
 
@@ -27,7 +28,7 @@ default rates and the predictor variables, including `Business Type`,
 Further, we collected additional predictor variables such as monthly 
 `GDP`, `Crime Rate`, and `Unemployment Rate` by State, as well as macroeconomic
 predictors such as monthly measures of the `S&P 500`, `Consumer Price Index`, 
-and 14 other volatility market indices (see Data Cleaning section for 
+and 14 other volatility market indices (see "Data Cleaning" section for 
 data collection details). We include insights from exploratory analysis of 
 these measures as well. 
 
@@ -37,7 +38,7 @@ First, we examined the relationship between default rate and `Business Type`
 by loan approval year. As shown on the plot below, we observe an interaction
 effect between these three features, such that default rates spiked for 
 loans that were approved around the Great Recession (approximately 2006- 2009). 
-Further, the different trajectories of the 3 curves implies the "individual" 
+Further, the different trajectories of the 3 curves implies the "Individual" 
 `Business Type` suffered greater default rates than corporations and 
 partnerships. Although corporations constitute a greater share of the data set,
 as evidenced by the greater mass in the red circles, they exhibit medium 
@@ -71,7 +72,7 @@ to the first two digits, which represents broad industry classes such as
 "Agriculture" and "Manufacturing." The following plot shows the default 
 rate for loans of each truncated NAICS code approved in each year between 
 1990-2014. We observe considerable variance in default rates between sectors;
-for instance, codes 72, corresponding to "Accommodation & Food Services", 
+for instance, code 72, corresponding to "Accommodation & Food Services", 
 has one of the highest default rates even before the recession. However,
 code 54, corresponding to "Professional, Scientific, and Technical Services,"
 consistently has one the lowest default rates. These patterns are consistent
@@ -79,6 +80,21 @@ with intuition, and underscore the value of including the truncated NAICS code
 as a predictive feature of defaulting. 
 
 ![](final_report_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
+
+##Default Rate by Subprogram Type
+
+Fourth, we compared the default rates between different loan subprogram types. 
+The plot below shows the default rates of the different loan
+subprograms versus their respective counts in the data. We observe 
+that the PSF subprogram is the most common subprogram, with medium default risk. 
+However, loans in the Premier Certified Lenders Program (PCLP) are less 
+common, but have higher default risk. This suggests subprogram type offers 
+useful signal for predicting default risk. Lastly, the loans belonging to the 
+Delta and Refinance subprograms are highly uncommon and have low default risk. 
+In order to reduce to the dimensionality of the feature space, we collapsed 
+these two factor levels into "Other."
+
+![](final_report_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
 
 ##State GDP vs. Default Rate
 
@@ -180,7 +196,7 @@ chose 122
 variables because AUC is maximized (see plot below). In effect, all variables
 were kept because they offered predictive power regarding loan defaults. 
 
-![](final_report_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
 
 The importances of the top 10 selected features are shown in the plot below.
 We observe that State GDP, a monthly time-dependent risk factor, is the most 
@@ -197,7 +213,7 @@ defaulting. Lastly, the importances of the Collar Index (CLL) and Iron
 Butterfly Index (BFLY) imply market volatility measures also improve 
 the discrimination of loan defaults. 
 
-![](final_report_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
 
 ###Model Fitting 
 
@@ -220,7 +236,7 @@ indicated by the spike in the red curve at `alpha` = 0.1. This implies the
 optimal model used the ridge penalty more than the LASSO penalty with minimal 
 regularization. 
 
-![](final_report_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
 
 ####Random Forest Classifier
 
@@ -230,7 +246,7 @@ to build each tree of the random forest. The plot below shows steadily declining
 AUC as the number of randomly chosen predictors increases, indicating that
 the optimal model is sparsest. 
 
-![](final_report_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
 
 ####Gradient Boosting Machine Classifier
 
@@ -244,19 +260,19 @@ resulting in the optimal model with 100 trees of maximum depth 6 that subsamples
 of optimal hyper-parameters in shown by the spike of the red curve in the first 
 subplot at the maximum tree depth of 6.  
 
-![](final_report_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
 
 Examining the variable importance of the final GBM model, we observe the most 
 important feature for predicting defaults is the Collar Index (CLL), which is
 "designed to provide investors with insights as to how one might protect an 
 investment in S&P 500 stocks against steep market declines" [CBOE](http://www.cboe.com/products/strategy-benchmark-indexes/collar-indexes/cboe-s-p-500-95-110-collar-index-cll). Other important features include the national consumer price index (CPI), 
 State GDP, crime, and unemployment rates, loan amount, and Chicago Board Options
-Exchange (CBOE) indicies including the Butterfly Index (BFLY), the Iron Condor 
+Exchange (CBOE) indices including the Butterfly Index (BFLY), the Iron Condor 
 Index (CNDR), and the Volatility index (VIX). Such variables are "important"
 because they lead to the greatest improvements to cross-validated AUC 
 across boosting iterations. 
 
-![](final_report_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
 
 ###Model Evaluation 
 
@@ -275,7 +291,7 @@ that the gradient boosting machine classifier has the highest AUC and
 sensitivity, whereas the logistic regression model with the elastic net penalty
 performs the worst. 
 
-![](final_report_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
 
 #####Distribution of Resampled Training AUC, Sensitivity, and Specificity 
 
@@ -290,7 +306,7 @@ models, suggesting it is prone to overfitting. For this reason, the logistic
 regression classifier (a linear model) outperforms the random forest classifier
 (a non-linear model) in terms of AUC and specificity. 
 
-![](final_report_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
 
 #####Training ROC Curves 
 
@@ -301,7 +317,7 @@ performs worse than the random forest model on the training data, but likely
 because it is avoiding overfitting. The logistic regression model with the 
 elastic net penalty performs the worst. 
 
-![](final_report_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
 
 ####Out-of-Sample Evaluation 
 
@@ -316,7 +332,7 @@ the all models achieve good performance over "random guessing" baselines.
 
 
 
-![](final_report_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-19-1.png)<!-- -->
 
 #####Test Calibration Plots
 
@@ -333,7 +349,7 @@ penalty achieves comparable performance; however, the random forest classifier
 tends to overestimate default probabilities. Again, this weaker performance 
 is likely due to overfitting. 
 
-![](final_report_files/figure-html/unnamed-chunk-19-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-20-1.png)<!-- -->
 
 The overfitting of the random forest classifier may be due to the fact that 
 too many features were randomly selected to build trees at each
