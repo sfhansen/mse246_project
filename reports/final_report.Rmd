@@ -211,7 +211,7 @@ eda_data %>%
 
 Building upon our exploratory data analysis, we constructed two types of 
 predictive models of loan default probability: binary response models and 
-cox proportional hazards models. Here, we present our approach to fitting
+the Cox Proportional Hazards model. Here, we present our approach to fitting
 both model types, including data cleaning, feature engineering, 
 feature selection, hyper-parameter optimization, and evaluation. 
 
@@ -688,10 +688,129 @@ over a larger search space.
 Moreover, the gradient boosting machine classifier demonstrated the best
 performance on the test set in terms of AUC and calibration.  
 
-##Cox Proportional Hazards Models 
+##Cox Proportional Hazards Model 
 
-- THEO
+```{r load env, echo=F,results='hide',message=F}
+require(rms)
+load('../data/cox_data_environment_train.RData')
+source('../scripts/cox_diagnostic_functions.R')
+```
+	
+#### Motivation:
+Survival analysis gives more detailed information about how the default risk of a loan varies over time. With binary classification, we estimated the probability that a given loan *ever* defaults. With a hazard model, we are able to estimate the probability that a loan defaults between any two points of time in its life.
 
+#### Model Choice:
+There exist many specialized Cox models that assume a particular form of the baseline hazard function. The Cox Proportional Hazards Model does not have this requirement. We can see this in the following description of the partial maximum likelihood procedure used to estimate the paramaters of the Cox PH model:
+
+The form of the cox model is:
+    $$h(t) = h_0(t)exp(\beta^T X)$$
+
+Suppose there are $r$ observed death times in the data (all distinct), and that $t_j$ is a death time in the set of possible death times: $R = \{t_1,t_2,...,t_r\}$. 
+
+Then the conditional probability that an individual dies at time $t_j$ given $t_j$ is a time of death in the set $R$:
+     $$\frac{P(\text{individual with feature vector $X^{(j)}$ dies at $t_j$})}{P(\text{one death at $t_j$})}$$     
+     $$ = \frac{ P(T = t_j | X^{(j)}, T \geq t_j ) }{P(T = t_j | X^{(k_0)}, T \geq t_j) \cup P(T = t_j | X^{(k_1)}, T \geq t_j) \cup ... P(T = t_j | X^{(k_q)}, T \geq t_j)}$$
+
+Where $k_0, ..., k_q$ correspond to the indices of observations with event times greater than or equal to $t_j$. Since the probabilities in the denominator are *assumed to be conditionally independent*, the denominator can be expressed as a sum of probabilities. Converting the above to continuous time, we get: 
+
+$$ = \frac{\text{lim}_{\delta \rightarrow 0}\frac{P(T < t_j + \delta | X^{(j)}, T \geq t_j )}{\delta}}{ \sum_{i = k_0}^{k_q} \text{lim}_{\delta \rightarrow 0}\frac{P(T < t_j + \delta | X^{(i)}, T \geq t_j)}{\delta} }$$
+
+$$ = \frac{h_j(t_j)}{\sum_{i = k_0}^{k_q} h_i(t_j)} = \frac{h_0(t_j) exp(\beta^T X^{(j)})}{\sum_{i = k_0}^{k_q} h_0(t_j) exp(\beta^T X^{(i)})} = \frac{exp(\beta^T X^{(j)})}{\sum_{i = k_0}^{k_q} exp(\beta^T X^{(i)})}$$
+
+And we can see that the contribution of any observation to the likelihood function will not be dependent on $h_0(t)$. $\square$
+	      
+#### Additional Modifications to the Data
+Roughly 95% of loans in the training data set had a term of 20 years. We decided that considering loans with the same term was more appropriate for this analysis (84,949 loans). 
+
+Within the training data, about 86\% of loans were right censored (term did not expire in window, and did not default), about 7\% of loans were paid off (term expired in window), and about 7% of loans defaulted within the window (figure 1). 
+		
+```{r distribution, eval=T,echo=F,fig.height=3.5,fig.width=3.5,fig.cap="Loans in training data by status"}
+descrip_status = table(status_m)
+names(descrip_status) = c("right_censored","paid_off","defaulted")
+par(cex.axis=0.85,cex.lab=0.85,cex=0.85)
+barplot(descrip_status/length(status_m),
+        ylab='percent of training data')
+```	
+
+Polynomial terms up to *degree five* were added for all numeric variables. Our intention was to include these features to capture non-linearities in these variables, and conduct feature selection during model fitting (through regularization).
+
+All numeric variables were centered to 0, and scaled by standard deviation.
+	   
+Missing values were set to 0 and an missing value indicator feature was added for each original variable.	   
+      
+Including expanded categorical variables, polynomials, and missing value dummies, the data had 201 features.
+      
+#### Kaplan-Meier Survival Curve
+A Kaplan-Meier curve is a non-parametric estimate of the survival function, $S(t) = P(T>t)$, defined as: 
+
+$$\hat{S(t)} = \prod_{t_i\leq t}\big[1 - \frac{d_i}{n_i}\big]$$
+
+Where $\{t_1,...,t_r\}$ are the death times of observations in the data, $\{d_1,...,d_r\}$ are the number of deaths that occur at those times, and $\{n_1,...,n_r\}$ are the number of observations remaining in the at-risk population just before those times.
+
+For expository purposes the following plots show the estimated survival function conditioned on select categorical variables such as a particular year, state, or status, as well as the general survival curve for our loan population. Note that the survival curve was significantly steeper for loans conditioned on these variables (a higher probability of default at all times).
+	     
+```{r survcurve,eval=T,echo=F,fig.height=3,fig.width=3,fig.cap="General Survival Function Estimate"}
+surv_obj = Surv(time_to_status,status)
+general_surv = npsurv(surv_obj~1,data=data.frame(dt))
+par(cex.axis=0.85,cex.lab=0.7,cex=0.7)
+survplot(general_surv,
+         xlim = c(0,7300),ylim = c(0.85,1),
+         xlab = 'days of life (max 7,300)',
+         ylab = 'Probability of survival')
+```	     
+```{r survcurve_varied,eval=T,echo=FALSE,fig.height=3,fig.width=3.3,fig.cap="Kaplan-Meier Survival Function Estimate",warning=FALSE,message=FALSE}
+year_surv = npsurv(surv_obj~ FiscalYear2007,data=data.frame(dt))
+par(cex.axis=0.85,cex.lab=0.7,cex=0.7)
+survplot(year_surv,
+         xlim = c(0,7300),ylim = c(0.8,1),
+         xlab = 'days of life (max 7,300)',
+         ylab = 'Probability of survival',
+         label.curves = list(keys=c('~2007','2007')),wh=c(0,0.8))
+state_surv = npsurv(surv_obj~ BorrStateFL,data=data.frame(dt))
+par(cex.axis=0.85,cex.lab=0.7,cex=0.7)
+survplot(state_surv,
+         xlim = c(0,7300),ylim = c(0.8,1),
+         xlab = 'days of life (max 7,300)',
+         ylab = 'Probability of survival',
+         label.curves = list(keys=c('~florida','florida')))
+multitime_surv = npsurv(surv_obj~ MultiTimeBorrowerTRUE,data=data.frame(dt))
+par(cex.axis=0.85,cex.lab=0.7,cex=0.7)
+survplot(multitime_surv,
+         xlim = c(0,7300),ylim = c(0.8,1),
+         xlab = 'days of life (max 7,300)',
+         ylab = 'Probability of survival',
+         label.curves = list(keys=c('~multi-borrower','multi-borrower')))
+```	     
+		
+#### Penalized Cox Proportional Hazards Model
+For the purpose of feature selection, we fit a series of penalized Cox models to the training data.
+
+We used an elastic net penalty-- a penalty term that is a linear combination of the $l_1$ and $l_2$ penalties.
+   $$\lambda [ (1-\alpha)||\beta||_2 + \alpha||\beta||_1]$$
+   
+We fit models varying $\alpha$ and $\lambda$ in the penalty-- we selected the model with the largest evaluated value of the likelihood function.
+
+\begin{center}      
+\includegraphics[width=350pt]{../studies/cox_models_heatmap.png}
+\end{center}
+	
+The best model, in terms had a value of $\lambda$ very close to 0, and $\alpha$ very close to 0 (the ridge penalty). Ninety-seven variables of the original 201 had non-zero coefficients.
+    
+#### One Year and Five Year Prediction of default (out of sample)
+The below figures show the out of sample performance of the one and five year probabilities estimated by the Cox model:   
+\begin{center}   
+\includegraphics[width=315pt,height=300pt]{../studies/p_1_roc_curve.png}
+\includegraphics[width=315pt,height=300pt]{../studies/p_5_roc_curve.png}
+\end{center}
+
+# Portfolio Selection
+For the next part of the project, we considered a portfolio of 500 loans selected from the withheld test data set. These loans met the following criteria:
+1. Loans that had not defaulted as of 02-01-2010.
+2. Loans that were approved before 02-01-2010.
+3. Loans less than 15 years old.
+
+These conditions were to ensure that the 500 loans in question were active as of the portfolio construction date, which we determined to be 02-01-2010. The 15 year age limit was so that estimation of 5 year ahead default probabilities would be valid.  
+		
 #Modeling Loss at Default 
 
 ##Value-at-Risk
