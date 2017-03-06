@@ -805,6 +805,7 @@ The below figures show the out of sample performance of the one and five year pr
 
 # Portfolio Selection
 For the next part of the project, we considered a portfolio of 500 loans selected from the withheld test data set. These loans met the following criteria:
+    
 1. Loans that had not defaulted as of 02-01-2010.
 2. Loans that were approved before 02-01-2010.
 3. Loans less than 15 years old.
