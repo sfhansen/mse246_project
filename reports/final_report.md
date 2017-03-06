@@ -414,9 +414,9 @@ Where $\{t_1,...,t_r\}$ are the death times of observations in the data, $\{d_1,
 
 For expository purposes the following plots show the estimated survival function conditioned on select categorical variables such as a particular year, state, or status, as well as the general survival curve for our loan population. Note that the survival curve was significantly steeper for loans conditioned on these variables (a higher probability of default at all times).
 	     
-![General Survival Function Estimate](final_report_files/figure-html/survcurve-1.png)
-
-![Kaplan-Meier Survival Function Estimate](final_report_files/figure-html/survcurve_varied-1.png)![Kaplan-Meier Survival Function Estimate](final_report_files/figure-html/survcurve_varied-2.png)![Kaplan-Meier Survival Function Estimate](final_report_files/figure-html/survcurve_varied-3.png)
+\begin{center}
+\includegraphics[width=630pt]{../studies/surv_curvs.pdf}	
+\end{center}	
 		
 #### Penalized Cox Proportional Hazards Model
 For the purpose of feature selection, we fit a series of penalized Cox models to the training data.
@@ -427,7 +427,7 @@ We used an elastic net penalty-- a penalty term that is a linear combination of 
 We fit models varying $\alpha$ and $\lambda$ in the penalty-- we selected the model with the largest evaluated value of the likelihood function.
 
 \begin{center}      
-\includegraphics[width=350pt]{../studies/cox_models_heatmap.png}
+\includegraphics[width=350pt,height=620pt]{../studies/heatmap.pdf}
 \end{center}
 	
 The best model, in terms had a value of $\lambda$ very close to 0, and $\alpha$ very close to 0 (the ridge penalty). Ninety-seven variables of the original 201 had non-zero coefficients.
@@ -435,8 +435,8 @@ The best model, in terms had a value of $\lambda$ very close to 0, and $\alpha$ 
 #### One Year and Five Year Prediction of default (out of sample)
 The below figures show the out of sample performance of the one and five year probabilities estimated by the Cox model:   
 \begin{center}   
-\includegraphics[width=315pt,height=300pt]{../studies/p_1_roc_curve.png}
-\includegraphics[width=315pt,height=300pt]{../studies/p_5_roc_curve.png}
+\includegraphics[width=315pt,height=300pt]{../studies/p_1_roc_curve.pdf}
+\includegraphics[width=315pt,height=300pt]{../studies/p_5_roc_curve.pdf}
 \end{center}
 
 # Portfolio Selection
@@ -447,7 +447,7 @@ For the next part of the project, we considered a portfolio of 500 loans selecte
 3. Loans less than 15 years old.
 
 These conditions were to ensure that the 500 loans in question were active as of the portfolio construction date, which we determined to be 02-01-2010. The 15 year age limit was so that estimation of 5 year ahead default probabilities would be valid.  
-		
+				
 #Modeling Loss at Default 
 
 ##Value-at-Risk
