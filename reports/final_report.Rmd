@@ -691,7 +691,7 @@ performance on the test set in terms of AUC and calibration.
 ##Cox Proportional Hazards Model 
 
 ```{r load env, echo=F,results='hide',message=F}
-require(rms)
+library(rms)
 load('../data/cox_data_environment_train.RData')
 source('../scripts/cox_diagnostic_functions.R')
 ```
@@ -751,13 +751,14 @@ For expository purposes the following plots show the estimated survival function
 	     
 ```{r survcurve,eval=T,echo=F,fig.height=3,fig.width=3,fig.cap="General Survival Function Estimate"}
 surv_obj = Surv(time_to_status,status)
-general_surv = npsurv(surv_obj~1,data=data.frame(dt))
+general_surv = rms::npsurv(surv_obj~1,data=data.frame(dt))
 par(cex.axis=0.85,cex.lab=0.7,cex=0.7)
 survplot(general_surv,
          xlim = c(0,7300),ylim = c(0.85,1),
          xlab = 'days of life (max 7,300)',
          ylab = 'Probability of survival')
 ```	     
+
 ```{r survcurve_varied,eval=T,echo=FALSE,fig.height=3,fig.width=3.3,fig.cap="Kaplan-Meier Survival Function Estimate",warning=FALSE,message=FALSE}
 year_surv = npsurv(surv_obj~ FiscalYear2007,data=data.frame(dt))
 par(cex.axis=0.85,cex.lab=0.7,cex=0.7)
