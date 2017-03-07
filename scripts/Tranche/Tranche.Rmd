@@ -1,0 +1,335 @@
+---
+title: "MS&E 246 Report"
+output: html_document
+---
+# Tranches: Distribution of Losses
+In this section, we will estimate the distribution for the one and five year losses of an investor who has purchased a $[5\%, 15\%]$ tranche backed by the 500 loan portfolio.  In addition, we will investigate the loss distribution of the $[15\%, 100\%]$ senior tranche. 
+
+### Portfolio and assumptions
+We assume that all active loans whose term length does not expire within the 1- and/or 5-year window are eligible for the tranche.  We select from the dataframe of total loans, a subset of active loans that meet this requirement.  
+
+```{r eval = FALSE}
+# Clear our workspace
+graphics.off()
+rm(list = ls())
+
+# Read in our data files
+df = readRDS('tranche_prob_df.rds')
+df2 = readRDS('merged.rds')
+
+# Create new data frame [Approval Year, Approval Amount, Default Year (NA if no def), Termination Year]
+mat = rep(0,0); # Initialize
+mat = cbind(mat, as.numeric(levels(df[,3]))[df[,3]]); # Append approval year
+mat = cbind(mat, df[,4]); # Append approval amt
+mat = cbind(mat, as.numeric(format(df2$ChargeOffDate, '%Y'))); # Append Default Year
+mat = cbind(mat, as.numeric(levels(df[,3]))[df[,3]] + ceiling(df2$TermInMonths/12)) # Append term year
+
+# Determine active loans for given year 
+year = 1990
+# Initialize matrices for active loans
+active1 = rep(0,0);
+active5 = rep(0,0);
+# Loop over entire dataframe of loans
+for (i in 1:54794){
+  # If approval year <= test year AND it did not default prior to test year
+  if ((mat[i,1] <= year) && (is.na(mat[i,3]) || mat[i,3]>= year)){
+    # If the loan has not expired within a year
+    if (mat[i,4] >= year+1){
+      # Append loan to active loans for 1-year
+      active1 = rbind(active1, mat[i,])
+    }
+    # If the loan has not expired within 5 years
+    if (mat[i,4] >= year+5){
+      # Append loan to active loans for 5-year
+      active5 = rbind(active5, mat[i,])
+    }
+  }
+}
+```
+
+#### Selection of loans for portfolio
+Once the dataframe of eligible loans for the portfolio has been created, we select 500 loans uniformly random from the list.  We store the 500 loans in a matrix in R.  
+
+```{r eval = FALSE}
+# Pick 500 loans uniformly random from active loan list
+sim1 = sample(1:dim(active1)[1], 500)
+sim1 = active1[sim1,]
+sim5 = sample(1:dim(active5)[1], 500)
+sim5 = active5[sim5,]
+```
+
+#### Determine value of the portfolio of loans 
+Once we have our loans selected for our portfolio, we determine the value of the portfolio.  It may seem intuitive to simply add the value of each loan for the portfolio to determine the value of the tranche.  However, this method would not account for different term lengths.  For example, a loan for \$100,000 over 1-year would be more be more valuable in the 1-year tranche than a 5-year loan for \$200,000.  We account for this problem by normalizing the value of each loan by the term length.  Note, this will ignore minor discrepancies between accrued interest.  In addition, we assume that loans either default or are paid in full at the loan termination date.  Note, this assumption ignores the possibility of a borrower paying the loan off before the loan due date.
+
+```{r eval = FALSE}
+# Determine total value of portfolio
+value1 = sum(sim1[,2]/(sim1[,4]-sim1[,1]))
+value5 = sum(sim5[,2]/(sim5[,4]-sim5[,1]))
+```
+
+#### Determine the loss from the portfolio of loans
+In an indentical manner to determining the value of the portfolio, we will determine the loss observed by the portfolio.  
+
+```{r eval = FALSE}
+# Determine default loans 
+def1 = sim1[!is.na(sim1[,3]),]
+def5 = sim5[!is.na(sim5[,3]),]
+
+# Determine total loss
+loss1 = sum(def1[,2]/(def1[,4]-def1[,1]))
+loss5 = 0;
+if (is.null(dim(def5))){
+  loss5 = def5[2]/(def5[4]-def[1])
+} else {
+  if ((dim(def5)[1]) > 1){
+    for (i in 1:(dim(def5)[1])){
+      loss5 = loss5 + def5[i,2]/(def5[i,4]-def5[i,1])
+    }
+  }
+}
+# Determine absolute ratio of loss
+loss_percent1 = c(loss_percent1, loss1/value1);
+loss_percent5 = c(loss_percent5, loss5/value5);
+```
+
+#### Generate loss distribution and plotting
+We run this simulation of selected 500 loans uniformly random from the list of active loans 1000 times, and compute the appropriate losses for each tranche.  We then plot the approximated distribution using the Kernel Density Estimator (KDE).
+```{r eval = FALSE}
+# Initialize Vector of Tranche Losses
+tranche1_5_15 = rep(0, length(loss_percent1))
+tranche1_15_100 = rep(0, length(loss_percent1))
+tranche5_5_15 = rep(0, length(loss_percent1))
+tranche5_15_100 = rep(0, length(loss_percent5))
+
+# Tranche [.05, .15] loss for 1 year
+for (i in 1:length(loss_percent1)){
+  if (loss_percent1[i]<.05){
+    tranche1_5_15[i] = 0;
+  } else {
+    if (loss_percent1[i] > 0.15){
+      tranche1_5_15[i] = 1;
+    } else{
+      tranche1_5_15[i] = 10*(loss_percent1[i] - .05)
+    }
+  }
+}
+
+# Tranche [.05, .15] loss for 5 year
+for (i in 1:length(loss_percent5)){
+  if (loss_percent5[i]<.05){
+    tranche5_5_15[i] = 0;
+  } else {
+    if (loss_percent5[i] > 0.15){
+      tranche5_5_15[i] = 1;
+    } else{
+      tranche5_5_15[i] = 10*(loss_percent5[i] - .05)
+    }
+  }
+}
+
+# Tranche [.15, 1] loss for 1 year
+for (i in 1:length(loss_percent1)){
+  if (loss_percent1[i]<.15){
+    tranche1_15_100[i] = 0;
+  } else {
+    tranche1_15_100[i] = 100/85*(loss_percent1[i] - .15)
+  }
+}
+
+# Tranche [.15, 1] loss for 1 year
+for (i in 1:length(loss_percent5)){
+  if (loss_percent5[i]<.15){
+    tranche5_15_100[i] = 0;
+  } else {
+    tranche5_15_100[i] = 100/85*(loss_percent5[i] - .15)
+  }
+}
+
+# Plot results and save figures
+y_max = max(c(max(density(tranche1_5_15, bw = .0075, from = 0, to = 1)$y), max(density(tranche1_15_100, bw = .0075, from = 0, to = 1)$y)))
+png(filename = paste("./DefaultDist/5yr", year, "tranche.png", sep = "_"))
+plot(density(tranche1_5_15, bw = .0075, from = 0, to = 1), 
+     main = paste("Loss for 1-year Portfolio in", year, "for tranches [5,15] and [15,100]", sep = " "), 
+     xlab = "Loss", ylab = "Density", 
+     xlim = c(0,1), ylim = c(0, min(c( 15, y_max))), col = 'blue');
+lines(density(tranche1_15_100, bw = .0075, from = 0, to = 1), col = 'red')
+legend('top', c('Tranche [0,15]', 'Tranche [15,100]'), col = c('blue', 'red'), lwd = 2)
+dev.off()
+
+y_max = max(c(max(density(tranche5_5_15, bw = .0075, from = 0, to = 1)$y), max(density(tranche5_15_100, bw = .0075, from = 0, to = 1)$y)))
+png(filename = paste("./DefaultDist/1yr", year, "tranche.png", sep = "_"))
+plot(density(tranche5_5_15, bw = .0075, from = 0, to = 1), 
+     main = paste("Loss for 5-year Portfolio in", year, "for tranches [5,15] and [15,100]", sep = " "), 
+     xlab = "Loss", ylab = "Density", 
+     xlim = c(0,1), ylim = c(0, min(c( 15, y_max))), col = 'blue');
+lines(density(tranche5_15_100, bw = .0075, from = 0, to = 1), col = 'red')
+legend('top', c('Tranche [5,15]', 'Tranche [15,100]'), col = c('blue', 'red'), lwd = 2)
+dev.off()
+```
+
+### Complete R-Code with simulation loops
+```{r eval = TRUE}
+graphics.off()
+rm(list = ls())
+
+
+df = readRDS('tranche_prob_df.rds')
+df2 = readRDS('merged.rds')
+
+# Create new data frame [Approval Year, Approval Amount, Default Year (NA if no def), Termination Year]
+mat = rep(0,0); # Initialize
+mat = cbind(mat, as.numeric(levels(df[,3]))[df[,3]]); # Append approval year
+mat = cbind(mat, df[,4]); # Append approval amt
+mat = cbind(mat, as.numeric(format(df2$ChargeOffDate, '%Y'))); # Append Default Year
+mat = cbind(mat, as.numeric(levels(df[,3]))[df[,3]] + ceiling(df2$TermInMonths/12)) # Append term year
+
+# Generate a simulation
+# Determine active loans
+cat("\014")
+#for (year in 1990:2013){
+for (year in 2005){
+  #print(year)
+  active1 = rep(0,0);
+  active5 = rep(0,0);
+  for (i in 1:54794){
+    if ((mat[i,1]<=year) && (is.na(mat[i,3]) || mat[i,3]>= year)){
+      if (mat[i,4] >= year+1){
+        active1 = rbind(active1, mat[i,])
+      }
+      if (mat[i,4] >= year+5){
+        active5 = rbind(active5, mat[i,])
+      }
+    }
+  }
+  
+  loss_percent1 = rep(0,0)
+  loss_percent5 = rep(0,0)
+  for (iter in 1:10000){
+    
+    # Pick 500 loans uniformly random from active loan list
+    sim1 = sample(1:dim(active1)[1], 500)
+    sim1 = active1[sim1,]
+    sim5 = sample(1:dim(active5)[1], 500)
+    sim5 = active5[sim5,]
+    
+    # Determine total value of portfolio
+    value1 = sum(sim1[,2]/(sim1[,4]-sim1[,1]))
+    value5 = sum(sim5[,2]/(sim5[,4]-sim5[,1]))
+    
+    # Determine default loans 
+    def1 = sim1[!is.na(sim1[,3]),]
+    def5 = sim5[!is.na(sim5[,3]),]
+    
+    # Determine total loss
+    loss1 = sum(def1[,2]/(def1[,4]-def1[,1]))
+    loss5 = 0;
+    if (is.null(dim(def5))){
+      loss5 = def5[2]/(def5[4]-def[1])
+    } else {
+      if ((dim(def5)[1]) > 1){
+        for (i in 1:(dim(def5)[1])){
+          loss5 = loss5 + def5[i,2]/(def5[i,4]-def5[i,1])
+        }
+      }
+    }
+    # Determine ratio of loss
+    loss_percent1 = c(loss_percent1, loss1/value1);
+    loss_percent5 = c(loss_percent5, loss5/value5);
+  }
+  
+  # Initialize Vector of Tranche Losses
+  tranche1_5_15 = rep(0, length(loss_percent1))
+  tranche1_15_100 = rep(0, length(loss_percent1))
+  tranche5_5_15 = rep(0, length(loss_percent1))
+  tranche5_15_100 = rep(0, length(loss_percent5))
+  
+  # Tranche [.05, .15] loss for 1 year
+  for (i in 1:length(loss_percent1)){
+    if (loss_percent1[i]<.05){
+      tranche1_5_15[i] = 0;
+    } else {
+      if (loss_percent1[i] > 0.15){
+        tranche1_5_15[i] = 1;
+      } else{
+        tranche1_5_15[i] = 10*(loss_percent1[i] - .05)
+      }
+    }
+  }
+  
+  # Tranche [.05, .15] loss for 5 year
+  for (i in 1:length(loss_percent5)){
+    if (loss_percent5[i]<.05){
+      tranche5_5_15[i] = 0;
+    } else {
+      if (loss_percent5[i] > 0.15){
+        tranche5_5_15[i] = 1;
+      } else{
+        tranche5_5_15[i] = 10*(loss_percent5[i] - .05)
+      }
+    }
+  }
+  
+  # Tranche [.15, 1] loss for 1 year
+  for (i in 1:length(loss_percent1)){
+    if (loss_percent1[i]<.15){
+      tranche1_15_100[i] = 0;
+    } else {
+      tranche1_15_100[i] = 100/85*(loss_percent1[i] - .15)
+    }
+  }
+  
+  # Tranche [.15, 1] loss for 1 year
+  for (i in 1:length(loss_percent5)){
+    if (loss_percent5[i]<.15){
+      tranche5_15_100[i] = 0;
+    } else {
+      tranche5_15_100[i] = 100/85*(loss_percent5[i] - .15)
+    }
+  }
+}
+
+```
+#### Plot results
+```{r}
+# Plot results and save figures
+y_max = max(c(max(density(tranche1_5_15, bw = .0075, from = 0, to = 1)$y), max(density(tranche1_15_100, bw = .0075, from = 0, to = 1)$y)))
+#png(filename = paste("./DefaultDist/1yr", year, "tranche.png", sep = "_"))
+plot(density(tranche1_5_15, bw = .0075, from = 0, to = 1), 
+     main = paste("Loss for 1-year Portfolio in", year, "for tranches [5,15] and [15,100]", sep = " "), 
+     xlab = "Loss", ylab = "Density", 
+     xlim = c(0,1), ylim = c(0, min(c( 15, y_max))), col = 'blue');
+lines(density(tranche1_15_100, bw = .0075, from = 0, to = 1), col = 'red')
+legend('top', c('Tranche [0,15]', 'Tranche [15,100]'), col = c('blue', 'red'), lwd = 2)
+#dev.off()
+```
+
+```{r}
+y_max = max(c(max(density(tranche5_5_15, bw = .0075, from = 0, to = 1)$y), max(density(tranche5_15_100, bw = .0075, from = 0, to = 1)$y)))
+#png(filename = paste("./DefaultDist/5yr", year, "tranche.png", sep = "_"))
+plot(density(tranche5_5_15, bw = .0075, from = 0, to = 1), 
+     main = paste("Loss for 5-year Portfolio in", year, "for tranches [5,15] and [15,100]", sep = " "), 
+     xlab = "Loss", ylab = "Density", 
+     xlim = c(0,1), ylim = c(0, min(c( 15, y_max))), col = 'blue');
+lines(density(tranche5_15_100, bw = .0075, from = 0, to = 1), col = 'red')
+legend('top', c('Tranche [5,15]', 'Tranche [15,100]'), col = c('blue', 'red'), lwd = 2)
+#dev.off()
+```
+
+
+```{r}
+y_max = max(c(max(density(tranche1_5_15, bw = .0075, from = 0, to = 1)$y), max(density(tranche5_15_100, bw = .0075, from = 0, to = 1)$y)))
+#png(filename = paste("./DefaultDist/full", year, "tranche.png", sep = "_"))
+plot(density(tranche1_5_15, bw = .0075, from = 0, to = 1), 
+     main = paste("Loss Distribution for 1- and 5-year in", year, "for tranches [5,15], [15,100]", sep = " "), 
+     xlab = "Loss", ylab = "Density", 
+     xlim = c(0,1), ylim = c(0, min(c( 15, y_max))), col = 'blue');
+lines(density(tranche5_5_15, bw = .0075, from = 0, to = 1), col = 'red')
+lines(density(tranche1_15_100, bw = .0075, from = 0, to = 1), col = 'green')
+lines(density(tranche5_15_100, bw = .0075, from = 0, to = 1), col = 'orange')
+legend('top', c('1-yr Tranche [5,15]', '5-yr Tranche [5,15]', '1-yr Tranche [15,100]', '5-yr Tranche [15,100]'), col = c('blue', 'red', 'green', 'orange'), lwd = 2)
+#dev.off()
+```
+
+### Interpretations and Comparison of Distributions
+We can see from the approximated density plots that in the early- to mid-90's, the [5%, 15%] tranche was only slightly more risky than the [15%, 100%] tranche.  Almost half the randomly generated portfolios generated a 0% loss in the [5%, 15%] tranche in 1997.  The senior tranche was statistically loss-less until 2005.  However, by 2007, the [5%, 15%] tranche receives almost 100% loss, and the senior tranche received an average of 10% loss.  From a risk management point of view, one would clearly want to invest in the senior tranche prior to 2005-06.  However, after the financial crisis, the [5%, 15%] tranche almost certainly received 100% loss, and the senior tranche received an average of 10% loss.  
+      
