@@ -104,7 +104,7 @@ rfe.results =
       data = train_with_defaults,
       rfeControl = rfe.cntrl,
       preProc = preProcessSteps,
-      # sizes =  seq(12,132,10), # commented out to reduce runtime 
+      sizes =  seq(12,132,10), # commented out to reduce runtime 
       metric = "ROC",
       trControl = train.cntrl)
 
@@ -144,7 +144,7 @@ rf.fit = train(percent_loss ~ .,
                    data = train_selected_vars,
                    preProc = preProcessSteps,
                    method = "rf",
-                   # tuneGrid = rfGrid, # commented out to reduce runtime 
+                   tuneGrid = rfGrid, # commented out to reduce runtime
                    trControl = cvCtrl)
 
 rf.fit_file = '../data/rf_fit.rds'
@@ -185,45 +185,76 @@ write_rds(prediction_df, prediction_df_file)
 ```
 
 ##Simulate Distribution of Total Loss 
+To estimate the value at risk, we generate simulations of the loan losses 
+for the portfolio in batches. For each batch of 10000 portfolio simulations, 
+we compute the value at risk and expected shortfall and store them. We then
+take the average value at risk and calculate confidence interval for both 
+metrics.
 
 ```{r}
 # Initialize simulation parameters 
 num_simulations = 10000
+num_sim_batch = 100
 num_loans = nrow(prediction_df)
-one_year_default_result <- vector("numeric", num_simulations)
-five_year_default_result <- vector("numeric", num_simulations)
+var1yr_vec95 <- vector("numeric", num_sim_batch)
+var1yr_vec99 <- vector("numeric", num_sim_batch)
+var5yr_vec95 <- vector("numeric", num_sim_batch)
+var5yr_vec99 <- vector("numeric", num_sim_batch)
+etl1yr_vec95 <- vector("numeric", num_sim_batch)
+etl1yr_vec99 <- vector("numeric", num_sim_batch)
+etl5yr_vec95 <- vector("numeric", num_sim_batch)
+etl5yr_vec99 <- vector("numeric", num_sim_batch)
 
-# run through simulations for the 500 loans
-for (simulation in c(1:num_simulations)) {
-  one_year_loss = 0  
-  five_year_loss = 0  
+for (j in c(1:num_sim_batch)){
   
-  # generate a uniform random variable and comparing that to our prediction 
-  uniform_probs <- runif(num_loans)
-  for (loan in c(1:num_loans)) {
+  one_year_default_result <- vector("numeric", num_simulations)
+  five_year_default_result <- vector("numeric", num_simulations)
+  
+  # run through simulations for the 500 loans
+  for (simulation in c(1:num_simulations)) {
+    one_year_loss = 0  
+    five_year_loss = 0  
     
-     # if the uniform rv is smaller than one year default prob, loan has defaulted
-    if (uniform_probs[loan] < prediction_df$one_year_prob[loan]) {
-      one_year_loss = one_year_loss + prediction_df$default_loss[loan] * prediction_df$GrossApproval[loan]
-    } 
+    # generate a uniform random variable and comparing that to our prediction 
+    uniform_probs <- runif(num_loans)
+    for (loan in c(1:num_loans)) {
+      
+       # if the uniform rv is smaller than one year default prob, loan has defaulted
+      if (uniform_probs[loan] < prediction_df$one_year_prob[loan]) {
+        one_year_loss = one_year_loss + prediction_df$default_loss[loan] * prediction_df$GrossApproval[loan]
+      } 
+      
+       # if the uniform rv is smaller than five year default prob, loan has defaulted
+      if (uniform_probs[loan] < prediction_df$five_year_prob[loan]) {
+        five_year_loss = five_year_loss + prediction_df$default_loss[loan] * prediction_df$GrossApproval[loan]
+      } 
+    }
     
-     # if the uniform rv is smaller than five year default prob, loan has defaulted
-    if (uniform_probs[loan] < prediction_df$five_year_prob[loan]) {
-      five_year_loss = five_year_loss + prediction_df$default_loss[loan] * prediction_df$GrossApproval[loan]
-    } 
+    # Update result vectors with total loss of current simulation 
+    one_year_default_result[simulation] = one_year_loss
+    five_year_default_result[simulation] = five_year_loss
   }
   
-  # Update result vectors with total loss of current simulation 
-  one_year_default_result[simulation] = one_year_loss
-  five_year_default_result[simulation] = five_year_loss
+  # Convert result objects to data frames 
+  portfolio_nominal <- sum(prediction_df$GrossApproval)
+  one_year_default_result = data.frame(DollarAmount = one_year_default_result, 
+                                       Percentage = one_year_default_result/portfolio_nominal)
+  five_year_default_result = data.frame(DollarAmount = five_year_default_result, 
+                                        Percentage = five_year_default_result/portfolio_nominal)
+  
+  #Compute Value at risk for every simulation batch
+  var1yr_vec95[j] <- -VaR(-one_year_default_result$Percentage, p=0.95)[1]
+  var1yr_vec99[j] <- -VaR(-one_year_default_result$Percentage, p=0.99)[1]
+  var5yr_vec95[j] <- -VaR(-five_year_default_result$Percentage, p=0.95)[1]
+  var5yr_vec99[j] <- -VaR(-five_year_default_result$Percentage, p=0.99)[1]
+  
+  #Compute expected shortfall for each batch
+  etl1yr_vec95[j] <- -ETL(-one_year_default_result$Percentage, p=0.95)[1]
+  etl1yr_vec99[j] <- -ETL(-one_year_default_result$Percentage, p=0.99)[1]
+  etl5yr_vec95[j] <- -ETL(-five_year_default_result$Percentage, p=0.95)[1]
+  etl5yr_vec99[j] <- -ETL(-five_year_default_result$Percentage, p=0.99)[1]
+  cat("\nSim: ",j, " done")
 }
-
-# Convert result objects to data frames 
-portfolio_nominal <- sum(prediction_df$GrossApproval)
-one_year_default_result = data.frame(DollarAmount = one_year_default_result, 
-                                     Percentage = one_year_default_result/portfolio_nominal)
-five_year_default_result = data.frame(DollarAmount = five_year_default_result, 
-                                      Percentage = five_year_default_result/portfolio_nominal)
 ```
 
 ##Plot Expected Loss Distributions
@@ -248,30 +279,40 @@ ggplot(data = five_year_default_result, aes(five_year_default_result)) +
 
 ##Compute Value-at-Risk
 ```{r}
+#Data frame containing VaR metrics for each simulation
 var1yr = data.frame(
-  -VaR(-one_year_default_result$Percentage, p=0.95)[1],
-  -VaR(-one_year_default_result$Percentage, p=0.95)[1]*portfolio_nominal,
-  -VaR(-one_year_default_result$Percentage, p=0.99)[1],
-  -VaR(-one_year_default_result$Percentage, p=0.99)[1]*portfolio_nominal)
+  var1yr_vec95,
+  var1yr_vec95*portfolio_nominal,
+  var1yr_vec99,
+  var1yr_vec99*portfolio_nominal)
 
 var5yr = data.frame(
-  -VaR(-five_year_default_result$Percentage, p=0.95)[1],
-  -VaR(-five_year_default_result$Percentage, p=0.95)[1]*portfolio_nominal,
-  -VaR(-five_year_default_result$Percentage, p=0.99)[1],
-  -VaR(-five_year_default_result$Percentage, p=0.99)[1]*portfolio_nominal)
+  var5yr_vec95,
+  var5yr_vec95*portfolio_nominal,
+  var5yr_vec99,
+  var5yr_vec99*portfolio_nominal)
 
--VaR(-one_year_default_result$Percentage, p=0.95)[1]
-mean(one_year_default_result$Percentage)
+#list containing global VaR metrics
+var1yr_95 <- list("Mean"= mean(var1yr_vec95),"Sd" = sd(var1yr_vec95))
+var1yr_95$CI <- c(var1yr_95$Mean - 1.96 * var1yr_95$Sd / num_sim_batch,
+                  var1yr_95$Mean + 1.96 * var1yr_95$Sd / num_sim_batch)
+
+var1yr_99 <- list("Mean"= mean(var1yr_vec95),"Sd" = sd(var1yr_vec99))
+var1yr_99$CI <- c(var1yr_99$Mean - 1.96 * var1yr_99$Sd / num_sim_batch,
+                  var1yr_99$Mean + 1.96 * var1yr_99$Sd / num_sim_batch)
+
+var5yr_95 <- list("Mean"= mean(var5yr_vec95),"Sd" = sd(var5yr_vec95))
+var5yr_95$CI <- c(var5yr_95$Mean - 1.96 * var5yr_95$Sd / num_sim_batch,
+                  var5yr_95$Mean + 1.96 * var5yr_95$Sd / num_sim_batch)
+
+var5yr_99 <- list("Mean"= mean(var5yr_vec99),"Sd" = sd(var5yr_vec99))
+var5yr_99$CI <- c(var5yr_99$Mean - 1.96 * var5yr_99$Sd / num_sim_batch,
+                  var5yr_99$Mean + 1.96 * var5yr_99$Sd / num_sim_batch)
+
+VaR_list <- list(var1yr, var5yr, var1yr_95, var1yr_99, var5yr_95, var5yr_99)
+var_file = '../data/var_list.rds'
+write_rds(VaR_list, var_file)
 ```
-
-
-
-TO DO:
-
-- Fix total loss distribution, since it represents the *sum* of loss percentages - done
-- Measure the risk in terms of the VaR at the 95% and 99% levels 
-(include confidence bands for your estimates). 
-- State the loan selection method --> Ask Theo 
 
 ##Compute Average Value-at-Risk
 
@@ -280,17 +321,35 @@ TO DO:
 
 ```{r}
 ETL1yr = data.frame(
-  -ETL(-one_year_default_result$Percentage, p=0.95)[1],
-  -ETL(-one_year_default_result$Percentage, p=0.95)[1]*portfolio_nominal,
-  -ETL(-one_year_default_result$Percentage, p=0.99)[1],
-  -ETL(-one_year_default_result$Percentage, p=0.99)[1]*portfolio_nominal)
+  etl1yr_vec95,
+  etl1yr_vec95*portfolio_nominal,
+  etl1yr_vec99,
+  etl1yr_vec99*portfolio_nominal)
 
 ETL5yr = data.frame(
-  -ETL(-five_year_default_result$Percentage, p=0.95)[1],
-  -ETL(-five_year_default_result$Percentage, p=0.95)[1]*portfolio_nominal,
-  -ETL(-five_year_default_result$Percentage, p=0.99)[1],
-  -ETL(-five_year_default_result$Percentage, p=0.99)[1]*portfolio_nominal)
+  etl5yr_vec95,
+  etl5yr_vec95*portfolio_nominal,
+  etl5yr_vec99,
+  etl5yr_vec99*portfolio_nominal)
 
+etl1yr_95 <- list("Mean"= mean(etl1yr_vec95),"Sd" = sd(etl1yr_vec95))
+etl1yr_95$CI <- c(etl1yr_95$Mean - 1.96 * etl1yr_95$Sd / num_sim_batch,
+                  etl1yr_95$Mean + 1.96 * etl1yr_95$Sd / num_sim_batch)
+
+etl1yr_99 <- list("Mean"= mean(etl1yr_vec95),"Sd" = sd(etl1yr_vec99))
+etl1yr_99$CI <- c(etl1yr_99$Mean - 1.96 * etl1yr_99$Sd / num_sim_batch,
+                  etl1yr_99$Mean + 1.96 * etl1yr_99$Sd / num_sim_batch)
+
+etl5yr_95 <- list("Mean"= mean(etl5yr_vec95),"Sd" = sd(etl5yr_vec95))
+etl5yr_95$CI <- c(etl5yr_95$Mean - 1.96 * etl5yr_95$Sd / num_sim_batch,
+                  etl5yr_95$Mean + 1.96 * etl5yr_95$Sd / num_sim_batch)
+
+etl5yr_99 <- list("Mean"= mean(etl5yr_vec99),"Sd" = sd(etl5yr_vec99))
+etl5yr_99$CI <- c(etl5yr_99$Mean - 1.96 * etl5yr_99$Sd / num_sim_batch,
+                  etl5yr_99$Mean + 1.96 * etl5yr_99$Sd / num_sim_batch)
+ETL_list <- list(ETL1yr, ETL5yr, etl1yr_95, etl1yr_99, etl5yr_95, etl5yr_99)
+etl_file = '../data/etl_list.rds'
+write_rds(ETL_list, etl_file)
 ```
 
 ```{r, eval = FALSE, echo = FALSE}
