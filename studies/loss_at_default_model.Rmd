@@ -26,6 +26,12 @@ train_file_in = "../data/train.rds"
 portfolio_file_in = "../data/portfolio.rds"
 prob_file_in <- "../data/cox_portfolio_probabilities.RData"
 
+rf.fit_file = '../data/alex_rf_fit.rds'
+prediction_df_file = '../data/alex_prediction_df.rds'
+etl_file = '../data/alex_etl_list.rds'
+var_file = '../data/alex_var_list.rds'
+
+
 # Read in data 
 train = read_rds(train_file_in)
 portfolio = read_rds(portfolio_file_in)
