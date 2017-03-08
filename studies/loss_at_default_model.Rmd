@@ -147,7 +147,7 @@ rf.fit = train(percent_loss ~ .,
                    tuneGrid = rfGrid, # commented out to reduce runtime
                    trControl = cvCtrl)
 
-rf.fit_file = '../data/rf_fit.rds'
+rf.fit_file = '../data/alex_rf_fit.rds'
 write_rds(rf.fit, rf.fit_file)
 ```
 
@@ -173,7 +173,7 @@ prediction_df =
 #Add GrossApproval for later computation of total loss
 prediction_df$GrossApproval <-  portfolio$GrossApproval
 
-prediction_df_file = '../data/prediction_df.rds'
+prediction_df_file = '../data/alex_prediction_df.rds'
 write_rds(prediction_df, prediction_df_file)
  
 # USE THIS CODE IF LOSS AT DEFAUL MODEL PREDICTS DOLLAR AMOUNTS
@@ -264,7 +264,6 @@ ggplot(data = one_year_default_result, aes(one_year_default_result$Percentage)) 
   geom_histogram(position = "identity") +
   labs(x = "Total Loss at Default from 500 Loans", y = "Count", 
        title = "One-Year Expected Loss Distribution from 500 Loan Portfolio")
-hist(one_year_default_result$Percentage)
 ```
 
 
@@ -278,6 +277,8 @@ ggplot(data = five_year_default_result, aes(five_year_default_result)) +
 ```
 
 ##Compute Value-at-Risk
+We measure the risk in terms of the 1 year and 5 years ahead VaR at the 95% and 99% levels and include confidence intervals.
+
 ```{r}
 #Data frame containing VaR metrics for each simulation
 var1yr = data.frame(
@@ -310,14 +311,13 @@ var5yr_99$CI <- c(var5yr_99$Mean - 1.96 * var5yr_99$Sd / num_sim_batch,
                   var5yr_99$Mean + 1.96 * var5yr_99$Sd / num_sim_batch)
 
 VaR_list <- list(var1yr, var5yr, var1yr_95, var1yr_99, var5yr_95, var5yr_99)
-var_file = '../data/var_list.rds'
+var_file = '../data/alex_var_list.rds'
 write_rds(VaR_list, var_file)
 ```
 
 ##Compute Average Value-at-Risk
 
-- Measure the risk in terms of the Average VaR at the 95% and 99% levels 
-(include confidence bands for your estimates). 
+We also measure the risk in terms of the 1 year and 5 years ahead verage VaR at the 95% and 99% levels and include confidence intervals
 
 ```{r}
 ETL1yr = data.frame(
@@ -348,9 +348,15 @@ etl5yr_99 <- list("Mean"= mean(etl5yr_vec99),"Sd" = sd(etl5yr_vec99))
 etl5yr_99$CI <- c(etl5yr_99$Mean - 1.96 * etl5yr_99$Sd / num_sim_batch,
                   etl5yr_99$Mean + 1.96 * etl5yr_99$Sd / num_sim_batch)
 ETL_list <- list(ETL1yr, ETL5yr, etl1yr_95, etl1yr_99, etl5yr_95, etl5yr_99)
-etl_file = '../data/etl_list.rds'
+etl_file = '../data/alex_etl_list.rds'
 write_rds(ETL_list, etl_file)
 ```
+
+#Interpretation and Risk Analysis
+
+- To be discussed at Thursday meeting. 
+- I think we should run this pipeline for portfolios from different time periods
+
 
 ```{r, eval = FALSE, echo = FALSE}
 # COMMENTED OUT BECAUSE NOT USING THIS NOW 
