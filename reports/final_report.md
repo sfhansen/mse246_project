@@ -1,5 +1,5 @@
 # MS&E 246 Final Report
-Samuel Hansen, Theo Vadpey, Alex Elkrief, Ben Ertringer  
+Samuel Hansen, Theo Vadpey, Alex Elkrief, Ben Etringer  
 2/23/2017  
 
 
