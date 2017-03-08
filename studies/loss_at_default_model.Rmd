@@ -104,7 +104,7 @@ rfe.results =
       data = train_with_defaults,
       rfeControl = rfe.cntrl,
       preProc = preProcessSteps,
-      # sizes =  seq(12,132,10), # commented out to reduce runtime 
+      sizes =  seq(12,132,10), # commented out to reduce runtime 
       metric = "ROC",
       trControl = train.cntrl)
 
@@ -144,7 +144,7 @@ rf.fit = train(percent_loss ~ .,
                    data = train_selected_vars,
                    preProc = preProcessSteps,
                    method = "rf",
-                   # tuneGrid = rfGrid, # commented out to reduce runtime 
+                   tuneGrid = rfGrid, # commented out to reduce runtime
                    trControl = cvCtrl)
 
 rf.fit_file = '../data/rf_fit.rds'
@@ -301,13 +301,17 @@ var1yr_99 <- list("Mean"= mean(var1yr_vec95),"Sd" = sd(var1yr_vec99))
 var1yr_99$CI <- c(var1yr_99$Mean - 1.96 * var1yr_99$Sd / num_sim_batch,
                   var1yr_99$Mean + 1.96 * var1yr_99$Sd / num_sim_batch)
 
-var5yr_95 <- list("Mean"= mean(var5yr_95),"Sd" = sd(var5yr_95))
+var5yr_95 <- list("Mean"= mean(var5yr_vec95),"Sd" = sd(var5yr_vec95))
 var5yr_95$CI <- c(var5yr_95$Mean - 1.96 * var5yr_95$Sd / num_sim_batch,
                   var5yr_95$Mean + 1.96 * var5yr_95$Sd / num_sim_batch)
 
-var5yr_99 <- list("Mean"= mean(var5yr_99),"Sd" = sd(var5yr_99))
+var5yr_99 <- list("Mean"= mean(var5yr_vec99),"Sd" = sd(var5yr_vec99))
 var5yr_99$CI <- c(var5yr_99$Mean - 1.96 * var5yr_99$Sd / num_sim_batch,
                   var5yr_99$Mean + 1.96 * var5yr_99$Sd / num_sim_batch)
+
+VaR_list <- list(var1yr, var5yr, var1yr_95, var1yr_99, var5yr_95, var5yr_99)
+var_file = '../data/var_list.rds'
+write_rds(VaR_list, var_file)
 ```
 
 ##Compute Average Value-at-Risk
@@ -336,15 +340,16 @@ etl1yr_99 <- list("Mean"= mean(etl1yr_vec95),"Sd" = sd(etl1yr_vec99))
 etl1yr_99$CI <- c(etl1yr_99$Mean - 1.96 * etl1yr_99$Sd / num_sim_batch,
                   etl1yr_99$Mean + 1.96 * etl1yr_99$Sd / num_sim_batch)
 
-etl5yr_95 <- list("Mean"= mean(etl5yr_95),"Sd" = sd(etl5yr_95))
+etl5yr_95 <- list("Mean"= mean(etl5yr_vec95),"Sd" = sd(etl5yr_vec95))
 etl5yr_95$CI <- c(etl5yr_95$Mean - 1.96 * etl5yr_95$Sd / num_sim_batch,
                   etl5yr_95$Mean + 1.96 * etl5yr_95$Sd / num_sim_batch)
 
-etl5yr_99 <- list("Mean"= mean(etl5yr_99),"Sd" = sd(etl5yr_99))
+etl5yr_99 <- list("Mean"= mean(etl5yr_vec99),"Sd" = sd(etl5yr_vec99))
 etl5yr_99$CI <- c(etl5yr_99$Mean - 1.96 * etl5yr_99$Sd / num_sim_batch,
                   etl5yr_99$Mean + 1.96 * etl5yr_99$Sd / num_sim_batch)
-
-
+ETL_list <- list(ETL1yr, ETL5yr, etl1yr_95, etl1yr_99, etl5yr_95, etl5yr_99)
+etl_file = '../data/etl_list.rds'
+write_rds(ETL_list, etl_file)
 ```
 
 ```{r, eval = FALSE, echo = FALSE}
