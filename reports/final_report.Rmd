@@ -784,7 +784,6 @@ These conditions were to ensure that the 500 loans in question were active as of
 				
 #Modeling Loss at Default 
 
-##Value-at-Risk
 #Data Preparation
 
 ##Cleaning
