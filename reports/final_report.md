@@ -371,7 +371,7 @@ performance on the test set in terms of AUC and calibration.
 Survival analysis gives more detailed information about how the default risk of a loan varies over time. With binary classification, we estimated the probability that a given loan *ever* defaults. With a hazard model, we are able to estimate the probability that a loan defaults between any two points of time in its life.
 
 #### Model Choice:
-There exist many specialized Cox models that assume a particular form of the baseline hazard function. The Cox Proportional Hazards Model does not have this requirement. We can see this in the following description of the partial maximum likelihood procedure used to estimate the paramaters of the Cox PH model:
+There exist many specialized Cox models that assume a particular form of the baseline hazard function. The Cox Proportional Hazards Model does not have this requirement. We can see this in the following description of the partial maximum likelihood procedure used to estimate the parameters of the Cox PH model:
 
 The form of the cox model is:
     $$h(t) = h_0(t)exp(\beta^T X)$$
@@ -460,4 +460,40 @@ These conditions were to ensure that the 500 loans in question were active as of
 
 #Loss Distributions by Tranche
 
-- BEN
+In this section, we will estimate the distribution for the one and five year losses of an investor who has purchased a [5%, 15%] tranche backed by the 500 loan portfolio.  In addition, we will investigate the loss distribution of the [15%, 100%] senior tranche. 
+
+##Portfolio and assumptions
+
+We assume that all active loans whose term length does not expire within the 1- and/or 5-year window are eligible for the tranche.  We select from the dataframe of total loans, a subset of active loans that meet this requirement.  
+
+
+
+###Selection of loans for portfolio
+
+Once the dataframe of eligible loans for the portfolio has been created, we select 500 loans uniformly random from the list.  We store the 500 loans in a matrix in R.  
+
+
+
+###Determine value of the portfolio of loans 
+
+Once we have our loans selected for our portfolio, we determine the value of the portfolio.  It may seem intuitive to simply add the value of each loan for the portfolio to determine the value of the tranche.  However, this method would not account for different term lengths.  For example, a loan for \$100,000 over 1-year would be more be more valuable in the 1-year tranche than a 5-year loan for \$200,000.  We account for this problem by normalizing the value of each loan by the term length.  Note, this will ignore minor discrepancies between accrued interest.  In addition, we assume that loans either default or are paid in full at the loan termination date.  Note, this assumption ignores the possibility of a borrower paying the loan off before the loan due date.
+
+
+
+###Determine the loss from the portfolio of loans
+
+In an identical manner to determining the value of the portfolio, we will determine the loss observed by the portfolio.  
+
+
+
+###Generate loss distribution and plotting
+
+We run this simulation of selected 500 loans uniformly random from the list of active loans 1000 times, and compute the appropriate losses for each tranche.  We then plot the approximated distribution using the Kernel Density Estimator (KDE) with bounded [0,1] support.
+
+
+![Temporary Caption](../scripts/Tranche/DefaultDist/full_2007_tranche.png)
+
+
+##Interpretations and Comparison of Distributions
+
+We can see from the approximated density plots that in the early- to mid-90's, the [5%, 15%] tranche was only slightly more risky than the [15%, 100%] tranche.  Almost half the randomly generated portfolios generated a 0% loss in the [5%, 15%] tranche in 1997.  The senior tranche was statistically loss-less until 2005.  However, by 2007, the [5%, 15%] tranche receives almost 100% loss, and the senior tranche received an average of 10% loss.  From a risk management point of view, one would clearly want to invest in the senior tranche prior to 2005-06.  However, after the financial crisis, the [5%, 15%] tranche almost certainly received 100% loss, and the senior tranche received an average of 10% loss.  
