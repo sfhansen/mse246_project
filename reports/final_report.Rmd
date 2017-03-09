@@ -928,6 +928,12 @@ prediction_df =
 prediction_df$GrossApproval <-  portfolio$GrossApproval
 ```
 
+```{r echo=FALSE}
+prediction_df = read_rds('../data/alex_prediction_df.rds')
+```
+
+
+
 ###Simulate Distribution of Total Loss 
 To estimate the value at risk, we generate simulations of the loan losses 
 for the portfolio in batches. For each batch of 10000 portfolio simulations, 
@@ -997,22 +1003,36 @@ for (j in c(1:num_sim_batch)){
   etl1yr_vec99[j] <- -ETL(-one_year_default_result$Percentage, p=0.99)[1]
   etl5yr_vec95[j] <- -ETL(-five_year_default_result$Percentage, p=0.95)[1]
   etl5yr_vec99[j] <- -ETL(-five_year_default_result$Percentage, p=0.99)[1]
-  cat("\nSim: ",j, " done")
 }
 ```
 
-###Plot Expected Loss Distributions
-```{r eval = FALSE}
+##Plot Expected Loss Distributions
+
+```{r echo=FALSE}
+one_year_default_result = read_rds('../data/alex_one_year_default_result.rds')
+five_year_default_result = read_rds('../data/alex_five_year_default_result.rds')
+```
+
+The following plots show the Total loss distribution in percentage of the
+total porftolio nominal for 100'000 portfolio simulations. Further, we get
+an average loss of `r mean(one_year_default_result$Percentage*100)`% for the 
+one year ahead period and `r mean(five_year_default_result$Percentage*100)`% for
+five years.
+
+```{r}
 # Plot the histogram for the 1-year losses 
-ggplot(data = one_year_default_result, aes(one_year_default_result$Percentage)) +
+ggplot(data = one_year_default_result, aes(one_year_default_result$Percentage*100)) +
   geom_histogram(position = "identity") +
   labs(x = "Total Loss at Default from 500 Loans", y = "Count", 
        title = "One-Year Expected Loss Distribution from 500 Loan Portfolio")
+
 ```
 
-```{r eval = FALSE}
+
+
+```{r}
 # Plot the histogram for the 5-year losses 
-ggplot(data = five_year_default_result, aes(five_year_default_result)) +
+ggplot(data = five_year_default_result, aes(five_year_default_result$Percentage*100)) +
   geom_histogram(position = "identity") +
   labs(x = "Total Loss at Default from 500 Loans", y = "Count", 
        title = "Five-Year Expected Loss Distribution from 500 Loan Portfolio")
