@@ -502,35 +502,63 @@ of default probability.
 
 
 
+
+
 ###Simulate Distribution of Total Loss 
 To estimate the value at risk, we generate simulations of the loan losses 
-for the portfolio in batches. For each batch of 10000 portfolio simulations, 
+for the portfolio in batches. For each batch of 10'000 portfolio simulations, 
 we compute the value at risk and expected shortfall and store them. We then
 take the average value at risk and calculate confidence interval for both 
 metrics.
 
 
 
-###Plot Expected Loss Distributions
+##Plot Expected Loss Distributions
 
 
 
+The following plots show the Total loss distribution in percentage of the
+total porftolio nominal for 100'000 portfolio simulations. Further, we get
+an average loss of 0.7519071% for the 
+one year ahead period and 4.1222375% for
+five years.
+
+![](final_report_files/figure-html/unnamed-chunk-30-1.png)<!-- -->
+
+
+
+![](final_report_files/figure-html/unnamed-chunk-31-1.png)<!-- -->
 
 ##Compute Value-at-Risk
-We measure the risk in terms of the 1 year and 5 years ahead VaR at the 95% and 99% levels and include confidence intervals.
+Following the simulations, the table below shows the VaR results and the 95 and 99% level with
+a 95% confidence interval for one and five years respectively.
 
+
+
+
+
+![Value at Risk results](../studies/alex_var_table.png)
 
 
 ##Compute Average Value-at-Risk
 
-We also measure the risk in terms of the 1 year and 5 years ahead verage VaR at the 95% and 99% levels and include confidence intervals
+Similarly to the Value at Risk we compute the same metrics for the Average Value at Risk, 
+also named Expected Tail loss. This metric represents the expected loss on the portfolio 
+in the worst 1% and 5% of scenarios respectively. Again, we do this for 1 year and 5 year
+simulations.
 
 
+
+![Expected Tail loss results](../studies/alex_etl_table_png.png)
 
 ##Interpretation and Risk Analysis
 
 - To be discussed at Thursday meeting. 
 - I think we should run this pipeline for portfolios from different time periods
+
+![](final_report_files/figure-html/unnamed-chunk-35-1.png)<!-- -->
+
+
 
 #Loss Distributions by Tranche
 

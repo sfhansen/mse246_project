@@ -3,11 +3,11 @@ title: "MS&E 246 Final Report"
 author: "Samuel Hansen, Theo Vadpey, Alex Elkrief, Ben Etringer"
 date: "2/23/2017"
 output:
-  pdf_document:
-    toc: yes
   html_document:
     keep_md: yes
     number_sections: yes
+    toc: yes
+  pdf_document:
     toc: yes
 ---
 
@@ -1121,7 +1121,7 @@ etl5yr_99$CI <- c(etl5yr_99$Mean - 1.96 * etl5yr_99$Sd / num_sim_batch,
 ETL_list <- list(ETL1yr, ETL5yr, etl1yr_95, etl1yr_99, etl5yr_95, etl5yr_99)
 ```
 
-![Expected Tail loss results](../studies/alex_etl_table.png)
+![Expected Tail loss results](../studies/alex_etl_table_png.png)
 
 ##Interpretation and Risk Analysis
 
