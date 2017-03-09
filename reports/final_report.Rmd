@@ -784,9 +784,9 @@ These conditions were to ensure that the 500 loans in question were active as of
 				
 #Modeling Loss at Default 
 
-#Data Preparation
+##Data Preparation
 
-##Cleaning
+###Cleaning
 
 Before fitting the loss at default model, we clean the training set 
 by filtering it to only include defaulted loans and by removing unnecessary
@@ -824,7 +824,7 @@ default_probs =
              five_year_prob = p_5 %>% unlist()) 
 ```
 
-##Pre-processing
+###Pre-processing
 
 We pre-process the data by centering and scaling all continuous features. 
 We apply the same normalization from the training data with only defaulted loans
@@ -837,7 +837,7 @@ set to the portfolio data used for prediction in the default probability model.
 preProcessSteps = c("nzv")
 ```
 
-#Feature Selection
+##Feature Selection
 
 To select the features that are used in the loss at default model, 
 we perform recursive feature elimination. 
@@ -872,7 +872,7 @@ train_selected_vars <- train_with_defaults %>%
   select(one_of(selected_vars), percent_loss)
 ```
 
-#Model Fitting 
+##Model Fitting 
 
 To tune hyperparameters, we use 5-fold cross-validation with the "one standard 
 error" rule. 
@@ -886,7 +886,7 @@ cvCtrl = trainControl(method = "cv",
                        # allowParallel = TRUE)
 ```
 
-##Random Forest Model 
+###Random Forest Model 
 ```{r}
 # Define grid of tuning parameters
 rfGrid = expand.grid(.mtry = c(2, 4, 6, 8, 10, 14))
@@ -900,9 +900,9 @@ rf.fit = train(percent_loss ~ .,
                    trControl = cvCtrl)
 ```
 
-#Model Evaluation 
+##Model Evaluation 
 
-##Test Set Prediction  
+###Test Set Prediction  
 
 We calculate the expected loss and default probability of each loan in the 
 portfolio of 500 loans by using the model of expected loss and best model
@@ -923,7 +923,7 @@ prediction_df =
 prediction_df$GrossApproval <-  portfolio$GrossApproval
 ```
 
-##Simulate Distribution of Total Loss 
+###Simulate Distribution of Total Loss 
 To estimate the value at risk, we generate simulations of the loan losses 
 for the portfolio in batches. For each batch of 10000 portfolio simulations, 
 we compute the value at risk and expected shortfall and store them. We then
@@ -996,7 +996,7 @@ for (j in c(1:num_sim_batch)){
 }
 ```
 
-##Plot Expected Loss Distributions
+###Plot Expected Loss Distributions
 ```{r}
 # Plot the histogram for the 1-year losses 
 ggplot(data = one_year_default_result, aes(one_year_default_result$Percentage)) +
@@ -1004,8 +1004,6 @@ ggplot(data = one_year_default_result, aes(one_year_default_result$Percentage)) 
   labs(x = "Total Loss at Default from 500 Loans", y = "Count", 
        title = "One-Year Expected Loss Distribution from 500 Loan Portfolio")
 ```
-
-
 
 ```{r}
 # Plot the histogram for the 5-year losses 
@@ -1087,7 +1085,7 @@ etl5yr_99$CI <- c(etl5yr_99$Mean - 1.96 * etl5yr_99$Sd / num_sim_batch,
 ETL_list <- list(ETL1yr, ETL5yr, etl1yr_95, etl1yr_99, etl5yr_95, etl5yr_99)
 ```
 
-#Interpretation and Risk Analysis
+##Interpretation and Risk Analysis
 
 - To be discussed at Thursday meeting. 
 - I think we should run this pipeline for portfolios from different time periods
