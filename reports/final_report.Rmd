@@ -784,6 +784,12 @@ These conditions were to ensure that the 500 loans in question were active as of
 				
 #Modeling Loss at Default 
 
+Using our optimal Cox proportional hazards model, we computed the 
+value-at-risk (VaR) and average value-at-risk (AVaR) for a portfolio of 500 
+randomly chosen loans. Here, we detail our procedure for selecting a loan
+portfolio, constructing a model for loss at default, simulating the total
+loss of the portfolio, and computing VaR and AVaR. 
+
 ##Data Preparation
 
 ###Cleaning
