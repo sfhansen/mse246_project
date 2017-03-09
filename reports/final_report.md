@@ -1,5 +1,5 @@
 # MS&E 246 Final Report
-Samuel Hansen, Theo Vadpey, Alex Elkrief, Ben Etringer  
+Samuel Hansen, Theo Vadpey, Alex Elkrief, Ben Ertringer  
 2/23/2017  
 
 
@@ -450,13 +450,82 @@ These conditions were to ensure that the 500 loans in question were active as of
 				
 #Modeling Loss at Default 
 
-##Value-at-Risk
+##Data Preparation
 
-- ALEX
+###Cleaning
 
-##Average Value-at-Risk
+Before fitting the loss at default model, we clean the training set 
+by filtering it to only include defaulted loans and by removing unnecessary
+features such as `LoanStatus`. 
 
-- ALEX
+
+
+###Pre-processing
+
+We pre-process the data by centering and scaling all continuous features. 
+We apply the same normalization from the training data with only defaulted loans
+to the portfolio data used for prediction in the loss at default model. 
+Similarly, we apply the same training normalization from the entire training 
+set to the portfolio data used for prediction in the default probability model.
+
+
+
+##Feature Selection
+
+To select the features that are used in the loss at default model, 
+we perform recursive feature elimination. 
+
+
+
+##Model Fitting 
+
+To tune hyperparameters, we use 5-fold cross-validation with the "one standard 
+error" rule. 
+
+
+
+###Random Forest Model 
+
+
+##Model Evaluation 
+
+###Test Set Prediction  
+
+We calculate the expected loss and default probability of each loan in the 
+portfolio of 500 loans by using the model of expected loss and best model
+of default probability. 
+
+
+
+###Simulate Distribution of Total Loss 
+To estimate the value at risk, we generate simulations of the loan losses 
+for the portfolio in batches. For each batch of 10000 portfolio simulations, 
+we compute the value at risk and expected shortfall and store them. We then
+take the average value at risk and calculate confidence interval for both 
+metrics.
+
+
+
+###Plot Expected Loss Distributions
+
+
+
+
+##Compute Value-at-Risk
+We measure the risk in terms of the 1 year and 5 years ahead VaR at the 95% and 99% levels and include confidence intervals.
+
+
+
+##Compute Average Value-at-Risk
+
+We also measure the risk in terms of the 1 year and 5 years ahead verage VaR at the 95% and 99% levels and include confidence intervals
+
+
+
+##Interpretation and Risk Analysis
+
+- To be discussed at Thursday meeting. 
+- I think we should run this pipeline for portfolios from different time periods
 
 #Loss Distributions by Tranche
 
