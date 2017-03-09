@@ -1,5 +1,5 @@
 # MS&E 246 Final Report
-Samuel Hansen, Theo Vadpey, Alex Elkrief, Ben Ertringer  
+Samuel Hansen, Theo Vadpey, Alex Elkrief, Ben Etringer  
 2/23/2017  
 
 
@@ -450,6 +450,12 @@ These conditions were to ensure that the 500 loans in question were active as of
 				
 #Modeling Loss at Default 
 
+Using our optimal Cox proportional hazards model, we computed the 
+value-at-risk (VaR) and average value-at-risk (AVaR) for a portfolio of 500 
+randomly chosen loans. Here, we detail our procedure for selecting a loan
+portfolio, constructing a model for loss at default, simulating the total
+loss of the portfolio, and computing VaR and AVaR. 
+
 ##Data Preparation
 
 ###Cleaning
@@ -560,9 +566,14 @@ In an identical manner to determining the value of the portfolio, we will determ
 We run this simulation of selected 500 loans uniformly random from the list of active loans 1000 times, and compute the appropriate losses for each tranche.  We then plot the approximated distribution using the Kernel Density Estimator (KDE) with bounded [0,1] support.
 
 
-![Temporary Caption](../scripts/Tranche/DefaultDist/full_2007_tranche.png)
+![Tranche loss distribution for 1998](../scripts/Tranche/DefaultDist/full_1998_tranche.png)
+![Tranche loss distribution for 2003](../scripts/Tranche/DefaultDist/full_2003_tranche.png)
+![Tranche loss distribution for 2008](../scripts/Tranche/DefaultDist/full_2008_tranche.png)
 
 
 ##Interpretations and Comparison of Distributions
 
-We can see from the approximated density plots that in the early- to mid-90's, the [5%, 15%] tranche was only slightly more risky than the [15%, 100%] tranche.  Almost half the randomly generated portfolios generated a 0% loss in the [5%, 15%] tranche in 1997.  The senior tranche was statistically loss-less until 2005.  However, by 2007, the [5%, 15%] tranche receives almost 100% loss, and the senior tranche received an average of 10% loss.  From a risk management point of view, one would clearly want to invest in the senior tranche prior to 2005-06.  However, after the financial crisis, the [5%, 15%] tranche almost certainly received 100% loss, and the senior tranche received an average of 10% loss.  
+See below table
+![Distribution statistics from tranche losses by year](../scripts/Tranche/DefaultDist/analysis_table.png)
+
+We can see from the approximated density plots and the above table that in the early- to mid-90's, the [5%, 15%] tranche was only slightly more risky than the [15%, 100%] tranche.  Almost half the randomly generated portfolios generated a 0% loss in the [5%, 15%] tranche in 1997.  The senior tranche was loss-less with 75% certainty the through 2005.  However, by 2007, the [5%, 15%] tranche receives almost 100% loss, and the senior tranche received an average of 3-5% loss.  From a risk management point of view, an individual who is not entirely risk-averse would likely invest in the [5%, 15%] tranche prior to year 2000.  A completely risk-averse individual could still invest in the senior tranche with almost certainly 0% loss.  However, after the financial crisis, the [5%, 15%] tranche received 100% loss with 75% certainty, and the senior tranche received an average of 3-5% loss.  
