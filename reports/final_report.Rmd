@@ -3,11 +3,11 @@ title: "MS&E 246 Final Report"
 author: "Samuel Hansen, Theo Vadpey, Alex Elkrief, Ben Etringer"
 date: "2/23/2017"
 output:
+  pdf_document:
+    toc: yes
   html_document:
     keep_md: yes
     number_sections: yes
-    toc: yes
-  pdf_document:
     toc: yes
 ---
 
@@ -932,11 +932,9 @@ prediction_df$GrossApproval <-  portfolio$GrossApproval
 prediction_df = read_rds('../data/alex_prediction_df.rds')
 ```
 
-
-
 ###Simulate Distribution of Total Loss 
 To estimate the value at risk, we generate simulations of the loan losses 
-for the portfolio in batches. For each batch of 10000 portfolio simulations, 
+for the portfolio in batches. For each batch of 10'000 portfolio simulations, 
 we compute the value at risk and expected shortfall and store them. We then
 take the average value at risk and calculate confidence interval for both 
 metrics.
@@ -1039,7 +1037,14 @@ ggplot(data = five_year_default_result, aes(five_year_default_result$Percentage*
 ```
 
 ##Compute Value-at-Risk
-We measure the risk in terms of the 1 year and 5 years ahead VaR at the 95% and 99% levels and include confidence intervals.
+Following the simulations, the table below shows the VaR results and the 95 and 99% level with
+a 95% confidence interval for one and five years respectively.
+
+```{r echo=FALSE}
+#loading stored VaR estimates
+VaR_list = read_rds('../data/alex_var_list.rds')
+ETL_list = read_rds('../data/alex_etl_list.rds')
+```
 
 ```{r eval = FALSE}
 #Data frame containing VaR metrics for each simulation
@@ -1060,7 +1065,7 @@ var1yr_95 <- list("Mean"= mean(var1yr_vec95),"Sd" = sd(var1yr_vec95))
 var1yr_95$CI <- c(var1yr_95$Mean - 1.96 * var1yr_95$Sd / num_sim_batch,
                   var1yr_95$Mean + 1.96 * var1yr_95$Sd / num_sim_batch)
 
-var1yr_99 <- list("Mean"= mean(var1yr_vec95),"Sd" = sd(var1yr_vec99))
+var1yr_99 <- list("Mean"= mean(var1yr_vec99),"Sd" = sd(var1yr_vec99))
 var1yr_99$CI <- c(var1yr_99$Mean - 1.96 * var1yr_99$Sd / num_sim_batch,
                   var1yr_99$Mean + 1.96 * var1yr_99$Sd / num_sim_batch)
 
@@ -1075,9 +1080,15 @@ var5yr_99$CI <- c(var5yr_99$Mean - 1.96 * var5yr_99$Sd / num_sim_batch,
 VaR_list <- list(var1yr, var5yr, var1yr_95, var1yr_99, var5yr_95, var5yr_99)
 ```
 
+![Value at Risk results](../studies/alex_var_table.png)
+
+
 ##Compute Average Value-at-Risk
 
-We also measure the risk in terms of the 1 year and 5 years ahead verage VaR at the 95% and 99% levels and include confidence intervals
+Similarly to the Value at Risk we compute the same metrics for the Average Value at Risk, 
+also named Expected Tail loss. This metric represents the expected loss on the portfolio 
+in the worst 1% and 5% of scenarios respectively. Again, we do this for 1 year and 5 year
+simulations.
 
 ```{r eval = FALSE}
 ETL1yr = data.frame(
@@ -1110,10 +1121,27 @@ etl5yr_99$CI <- c(etl5yr_99$Mean - 1.96 * etl5yr_99$Sd / num_sim_batch,
 ETL_list <- list(ETL1yr, ETL5yr, etl1yr_95, etl1yr_99, etl5yr_95, etl5yr_99)
 ```
 
+![Expected Tail loss results](../studies/alex_etl_table.png)
+
 ##Interpretation and Risk Analysis
 
 - To be discussed at Thursday meeting. 
 - I think we should run this pipeline for portfolios from different time periods
+
+```{r echo=FALSE}
+ggplot(data = one_year_default_result, aes(one_year_default_result$Percentage*100)) +
+  geom_histogram(position = "identity") +
+  geom_vline(xintercept = VaR_list[3][[1]]$Mean*100, linetype = "longdash", show.legend = T, color="darkgreen") + 
+  geom_vline(xintercept = VaR_list[4][[1]]$Mean*100, linetype = "longdash", show.legend = T, color="darkgreen") + 
+  geom_vline( xintercept = ETL_list[3][[1]]$Mean*100, linetype = "longdash", show.legend = T, color="red") + 
+  geom_vline(xintercept = ETL_list[4][[1]]$Mean*100, linetype = "longdash", show.legend = T, color="red") + 
+  labs(x = "Total Loss at Default from 500 Loans", y = "Count", 
+       title = "One-Year Expected Loss Distribution from 500 Loan Portfolio")
+
+
+```
+
+
 
 #Loss Distributions by Tranche
 
