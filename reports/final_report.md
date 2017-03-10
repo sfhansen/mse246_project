@@ -367,10 +367,10 @@ performance on the test set in terms of AUC and calibration.
 
 
 	
-#### Motivation:
 Survival analysis gives more detailed information about how the default risk of a loan varies over time. With binary classification, we estimated the probability that a given loan *ever* defaults. With a hazard model, we are able to estimate the probability that a loan defaults between any two points of time in its life.
 
-#### Model Choice:
+###Model Choice
+
 There exist many specialized Cox models that assume a particular form of the baseline hazard function. The Cox Proportional Hazards Model does not have this requirement. We can see this in the following description of the partial maximum likelihood procedure used to estimate the parameters of the Cox PH model:
 
 The form of the cox model is:
@@ -390,9 +390,9 @@ $$ = \frac{h_j(t_j)}{\sum_{i = k_0}^{k_q} h_i(t_j)} = \frac{h_0(t_j) exp(\beta^T
 
 And we can see that the contribution of any observation to the likelihood function will not be dependent on $h_0(t)$. $\square$
 	      
-#### Additional Modifications to the Data
-Roughly 95% of loans in the training data set had a term of 20 years. We decided that considering loans with the same term was more appropriate for this analysis (84,949 loans). 
+###Modifications to the Data
 
+Roughly 95% of loans in the training data set had a term of 20 years. We decided that considering loans with the same term was more appropriate for this analysis (84,949 loans). 
 Within the training data, about 86\% of loans were right censored (term did not expire in window, and did not default), about 7\% of loans were paid off (term expired in window), and about 7% of loans defaulted within the window (figure 1). 
 		
 ![Loans in training data by status](final_report_files/figure-html/distribution-1.png)
@@ -405,7 +405,8 @@ Missing values were set to 0 and an missing value indicator feature was added fo
       
 Including expanded categorical variables, polynomials, and missing value dummies, the data had 201 features.
       
-#### Kaplan-Meier Survival Curve
+###Kaplan-Meier Survival Curves
+
 A Kaplan-Meier curve is a non-parametric estimate of the survival function, $S(t) = P(T>t)$, defined as: 
 
 $$\hat{S(t)} = \prod_{t_i\leq t}\big[1 - \frac{d_i}{n_i}\big]$$
@@ -418,7 +419,8 @@ For expository purposes the following plots show the estimated survival function
 \includegraphics[width=630pt]{../studies/surv_curvs.pdf}	
 \end{center}	
 		
-#### Penalized Cox Proportional Hazards Model
+###Penalized Cox Proportional Hazards Model
+
 For the purpose of feature selection, we fit a series of penalized Cox models to the training data.
 
 We used an elastic net penalty-- a penalty term that is a linear combination of the $l_1$ and $l_2$ penalties.
@@ -432,8 +434,11 @@ We fit models varying $\alpha$ and $\lambda$ in the penalty-- we selected the mo
 	
 The best model, in terms had a value of $\lambda$ very close to 0, and $\alpha$ very close to 0 (the ridge penalty). Ninety-seven variables of the original 201 had non-zero coefficients.
     
-#### One Year and Five Year Prediction of default (out of sample)
-The below figures show the out of sample performance of the one and five year probabilities estimated by the Cox model:   
+###One Year and Five Year Predictions of Default (out of sample)
+
+The below figures show the out of sample performance of the one and five year 
+probabilities estimated by the Cox model:   
+
 \begin{center}   
 \includegraphics[width=315pt,height=300pt]{../studies/p_1_roc_curve.pdf}
 \includegraphics[width=315pt,height=300pt]{../studies/p_5_roc_curve.pdf}
@@ -505,6 +510,7 @@ of default probability.
 
 
 ###Simulate Distribution of Total Loss 
+
 To estimate the value at risk, we generate simulations of the loan losses 
 for the portfolio in batches. For each batch of 10'000 portfolio simulations, 
 we compute the value at risk and expected shortfall and store them. We then
@@ -525,13 +531,12 @@ five years.
 
 ![](final_report_files/figure-html/unnamed-chunk-30-1.png)<!-- -->
 
-
-
 ![](final_report_files/figure-html/unnamed-chunk-31-1.png)<!-- -->
 
 ##Compute Value-at-Risk
-Following the simulations, the table below shows the VaR results and the 95 and 99% level with
-a 95% confidence interval for one and five years respectively.
+
+Following the simulations, the table below shows the VaR results and the 95 and
+99% level with a 95% confidence interval for one and five years respectively.
 
 
 
