@@ -3,11 +3,11 @@ title: "MS&E 246 Final Report"
 author: "Samuel Hansen, Theo Vadpey, Alex Elkrief, Ben Etringer"
 date: "2/23/2017"
 output:
+  pdf_document:
+    toc: yes
   html_document:
     keep_md: yes
     number_sections: yes
-    toc: yes
-  pdf_document:
     toc: yes
 ---
 
