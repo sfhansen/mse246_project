@@ -23,14 +23,13 @@ provide signal for models of loan default. Because we first aimed to build
 binary response models of default probability, we excluded "Exempt" loans from 
 our exploratory analysis. Subsequently, we examined the relationship between 
 default rates and the predictor variables, including `Business Type`, 
-`Loan Amount`, `NAICS Code`, and `Loan Term`, among others. 
+`Loan Amount`, `NAICS Code`, and `Subprogram Type`, among others. 
 
 Further, we collected additional predictor variables such as monthly 
 `GDP`, `Crime Rate`, and `Unemployment Rate` by State, as well as macroeconomic
 predictors such as monthly measures of the `S&P 500`, `Consumer Price Index`, 
 and 14 other volatility market indices (see "Data Cleaning" section for 
-data collection details). We include insights from exploratory analysis of 
-these measures as well. 
+data collection details). 
 
 ##Default Rate vs. Business Type 
 
@@ -95,10 +94,6 @@ In order to reduce to the dimensionality of the feature space, we collapsed
 these two factor levels into "Other."
 
 ![](final_report_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
-
-##State GDP vs. Default Rate
-
-- Make plot here
 
 #Modeling Default Probability 
 
@@ -486,9 +481,12 @@ features such as `LoanStatus`.
 To select the features used in the loss at default model, we performed 
 recursive feature elimination. We used 5-fold cross validation and the 
 "one standard error rule" to choose the number of features that minimized
-mean squared error within one standard error of the minimum. 
+mean squared error within one standard error of the minimum. As shown in the 
+plot below, cross-validated RMSE is minimized at 121 variables, the maximum
+possible. In this way, all features were included in the model of loss at 
+default. 
 
-
+![](final_report_files/figure-html/unnamed-chunk-23-1.png)<!-- -->
 
 ###Model Fitting 
 
@@ -496,11 +494,11 @@ Using the features selected by recursive feature elimination,
 we built a random forest model of loss at default. We used 5-fold 
 cross-validation and the one standard error rule to find the optimal
 number of features to be considered for splitting during construction of each
-tree. 
+tree. As shown in the figure below, cross-validated RMSE was minimized
+at `mtry` = 2, meaning the optimal random forest model used 2 random predictors
+to make each split. 
 
-
-
-
+![](final_report_files/figure-html/unnamed-chunk-24-1.png)<!-- -->
 
 ###Portfolio Prediction  
 
@@ -538,9 +536,9 @@ an average loss of 0.7519071% for the
 one year ahead period and 4.1222375% for
 five years.
 
-![](final_report_files/figure-html/unnamed-chunk-30-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-29-1.png)<!-- -->
 
-![](final_report_files/figure-html/unnamed-chunk-31-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-30-1.png)<!-- -->
 
 ##Computing Value-at-Risk
 
@@ -571,7 +569,7 @@ for 1-year and 5-year simulations.
 - To be discussed at Thursday meeting. 
 - I think we should run this pipeline for portfolios from different time periods
 
-![](final_report_files/figure-html/unnamed-chunk-35-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-34-1.png)<!-- -->
 
 #Loss Distributions by Tranche
 
@@ -628,6 +626,7 @@ We use the vector of percent losses, where each element is the loss from a singl
 where $[a, b]$ are the bounds of the tranche, and $L$ is the absolute percent loss. 
 
 ####Observed yearly distributions of 500-loan portfolios by tranches
+
 We run this simulation of selected 500 loans uniformly random from the list of active loans 1000 times, and compute the appropriate losses for each tranche.  We then plot the approximated distribution using the Kernel Density Estimator (KDE) with bounded [0,1] support.
 
 
@@ -638,7 +637,8 @@ We run this simulation of selected 500 loans uniformly random from the list of a
 
 ##Interpretations and Comparison of Distributions
 
-See below table
+See table below: 
+
 ![Distribution statistics from tranche losses by year](../scripts/Tranche/DefaultDist/analysis_table.png)
 
 We can see from the approximated density plots of the observed losses seen by randomly generated portfolios, and the above table, that up until 2006 the [5%, 15%] tranche was equally risky as the [15%, 100%] tranche.  All of the randomly generated portfolios generated a 0% loss in the [5%, 15%] tranche through 2005.  The senior tranche obtained zero loss throughout the 1990-2013 timeframe.  However, from 2007-2010, the [5%, 15%] 5-year tranche receives significant loss (up to 100% in 2009-10). From a risk management point of view, an individual who is completely risk-averse would be willing to invest in the [5%, 15%] tranche prior to year 2007.  However, the risk-averse investor would have to switch to the senior tranche after 2007 in order to maintain the desired risk portfolio.  

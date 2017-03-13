@@ -3,11 +3,11 @@ title: "MS&E 246 Final Report"
 author: "Samuel Hansen, Theo Vadpey, Alex Elkrief, Ben Etringer"
 date: "2/23/2017"
 output:
-  pdf_document:
-    toc: yes
   html_document:
     keep_md: yes
     number_sections: yes
+    toc: yes
+  pdf_document:
     toc: yes
 ---
 
@@ -848,36 +848,17 @@ preProcessSteps = c("nzv")
 To select the features used in the loss at default model, we performed 
 recursive feature elimination. We used 5-fold cross validation and the 
 "one standard error rule" to choose the number of features that minimized
-mean squared error within one standard error of the minimum. 
+mean squared error within one standard error of the minimum. As shown in the 
+plot below, cross-validated RMSE is minimized at 121 variables, the maximum
+possible. In this way, all features were included in the model of loss at 
+default. 
 
-```{r eval = FALSE}
-# Set the recursive feature elimination parameters 
-set.seed(1234)
-rfe.cntrl = rfeControl(functions = rfFuncs,
-                      method = "cv",
-                      number = 5)
-train.cntrl = trainControl(selectionFunction = "oneSE")
-
-# Perform recursive feature elimination to select variables
-rfe.results =
-  rfe(percent_loss~.,
-      data = train_with_defaults,
-      rfeControl = rfe.cntrl,
-      preProc = preProcessSteps,
-      sizes =  seq(12,132,10), # commented out to reduce runtime 
-      metric = "ROC",
-      trControl = train.cntrl)
-
-# Map factor levels back to their respective features 
-selected_vars <- map(predictors(rfe.results), 
-                      ~str_match(.x, names(train_with_defaults))) %>% 
-  unlist() %>% 
-  .[!is.na(.)] %>%
-  unique()
-
-# Create data frame with these selected variables 
-train_selected_vars <- train_with_defaults %>%
-  select(one_of(selected_vars), percent_loss)
+```{r}
+read_rds("../data/alex_rfe_results.rds") %>%
+  ggplot() +
+  labs(x = "Number of Variables",
+       y = "RMSE (Cross-Validated)",
+       title = "Recursive Feature Elimination\nNumber of Variables vs. RMSE")
 ```
 
 ###Model Fitting 
@@ -886,28 +867,21 @@ Using the features selected by recursive feature elimination,
 we built a random forest model of loss at default. We used 5-fold 
 cross-validation and the one standard error rule to find the optimal
 number of features to be considered for splitting during construction of each
-tree. 
+tree. As shown in the figure below, cross-validated RMSE was minimized
+at `mtry` = 2, meaning the optimal random forest model used 2 random predictors
+to make each split. 
 
-```{r eval = FALSE}
-# Define cross-validation controls 
-cvCtrl = trainControl(method = "cv", 
-                       number = 5,
-                       selectionFunction = "oneSE",
-                       classProbs = TRUE)
-                       # allowParallel = TRUE)
-```
+```{r}
+rf.fit = read_rds("../data/alex_rf_fit.rds")
 
-```{r eval = FALSE}
-# Define grid of tuning parameters
-rfGrid = expand.grid(.mtry = c(2, 4, 6, 8, 10, 14))
-# Fit random forest model
-set.seed(1234)
-rf.fit = train(percent_loss ~ .,
-                   data = train_selected_vars,
-                   preProc = preProcessSteps,
-                   method = "rf",
-                   tuneGrid = rfGrid, # commented out to reduce runtime
-                   trControl = cvCtrl)
+rf.fit$results %>%
+  ggplot(mapping = aes(x = mtry, y = RMSE)) +
+  geom_point() +
+  geom_line() +
+  scale_x_continuous(breaks = seq(0,14,2)) + 
+  labs(x = "Number of Randomly Selected Predictors",
+       y = "RMSE (Cross-Validated)",
+       title = "Random Forest Hyper-Parameter Optimization")
 ```
 
 ###Portfolio Prediction  
