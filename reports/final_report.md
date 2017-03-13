@@ -399,7 +399,7 @@ Within the training data, about 86\% of loans were right censored (term did not 
 
 Polynomial terms up to *degree five* were added for all numeric variables. Our intention was to include these features to capture non-linearities in these variables, and conduct feature selection during model fitting (through regularization).
 
-All numeric variables were centered to 0, and scaled by standard deviation.
+Further, all numeric variables were centered to 0, and scaled by standard deviation.
 	   
 Missing values were set to 0 and an missing value indicator feature was added for each original variable.	   
       
@@ -466,7 +466,12 @@ of the portfolio construction date, which we determined to be 02-01-2010. The
 15 year age limit was so that estimation of 5 year ahead default probabilities 
 would be valid.  
 
-##Data Cleaning
+##Constructing Loss at Default Model 
+
+Our pipeline for constructing a model for loss at default involved 
+data cleaning, feature selection, model fitting, and evaluation. 
+
+###Data Cleaning
 
 Before fitting the loss at default model, we cleaned the training set 
 by filtering it to only include defaulted loans and by removing unnecessary
@@ -476,7 +481,7 @@ features such as `LoanStatus`.
 
 
 
-##Feature Selection
+###Feature Selection
 
 To select the features used in the loss at default model, we performed 
 recursive feature elimination. We used 5-fold cross validation and the 
@@ -485,7 +490,7 @@ mean squared error within one standard error of the minimum.
 
 
 
-##Model Fitting 
+###Model Fitting 
 
 Using the features selected by recursive feature elimination,
 we built a random forest model of loss at default. We used 5-fold 
@@ -497,34 +502,38 @@ tree.
 
 
 
-##Model Evaluation 
+###Portfolio Prediction  
 
-###Test Set Prediction  
+Using the optimal random forest model of expected loss fitted on the training 
+set, we predicted the loss at default for loans in the portfolio. 
+Because we used `percentage loss` as the response variable,
+we applied a sigmoid transformation to the expected loss predictions to 
+ensure values ranged from 0 to 1. 
 
-We calculate the expected loss and default probability of each loan in the 
-portfolio of 500 loans by using the model of expected loss and best model
-of default probability. 
+In addition, we used our optimal Cox proportional hazards model from section 
+3.2 to estimate the one-year and five-year default probabilities of loans
+in the portfolio. This procedure resulted in a data frame of the 500 portfolio 
+loans that included the one- and five-year default probabilities along 
+with respective estimates of loss at default. 
 
 
 
 
 
-###Simulate Distribution of Total Loss 
+##Simulating Total Loss Distribution
 
-To estimate the value at risk, we generate simulations of the loan losses 
-for the portfolio in batches. For each batch of 10'000 portfolio simulations, 
-we compute the value at risk and expected shortfall and store them. We then
-take the average value at risk and calculate confidence interval for both 
+To estimate the value at risk, we generated simulations of the loan losses 
+for the portfolio in batches. For each batch of 10,000 portfolio simulations, 
+we computed the value at risk and expected shortfall and stored them. We then
+took the average value at risk and calculated confidence interval for both 
 metrics.
 
 
 
-##Plot Expected Loss Distributions
 
 
-
-The following plots show the Total loss distribution in percentage of the
-total porftolio nominal for 100'000 portfolio simulations. Further, we get
+The following plots show the total loss distribution in percentage of the
+total porftolio nominal for 100,000 portfolio simulations. Further, we get
 an average loss of 0.7519071% for the 
 one year ahead period and 4.1222375% for
 five years.
@@ -533,10 +542,10 @@ five years.
 
 ![](final_report_files/figure-html/unnamed-chunk-31-1.png)<!-- -->
 
-##Compute Value-at-Risk
+##Computing Value-at-Risk
 
 Following the simulations, the table below shows the VaR results and the 95 and
-99% level with a 95% confidence interval for one and five years respectively.
+99% level with a 95% confidence interval for one and five years, respectively.
 
 
 
@@ -545,12 +554,13 @@ Following the simulations, the table below shows the VaR results and the 95 and
 ![Value at Risk results](../studies/alex_var_table.png)
 
 
-##Compute Average Value-at-Risk
+##Computing Average Value-at-Risk
 
-Similarly to the Value at Risk we compute the same metrics for the Average Value at Risk, 
-also named Expected Tail loss. This metric represents the expected loss on the portfolio 
-in the worst 1% and 5% of scenarios respectively. Again, we do this for 1 year and 5 year
-simulations.
+Similarly to our Value at Risk estimation procedure, we computed the same 
+metrics for the Average Value at Risk, also called "Expected Tail loss." 
+This metric represents the expected loss on the portfolio 
+in the worst 1% and 5% of scenarios respectively. We repeated this analysis
+for 1-year and 5-year simulations.
 
 
 
@@ -563,15 +573,13 @@ simulations.
 
 ![](final_report_files/figure-html/unnamed-chunk-35-1.png)<!-- -->
 
-
-
 #Loss Distributions by Tranche
 
-In this section, we will estimate the distribution for the one and five year losses of an investor who has purchased a [5%, 15%] tranche backed by the 500 loan portfolio.  In addition, we will investigate the loss distribution of the [15%, 100%] senior tranche. 
+In this section, we will estimate the distribution for the one and five year losses of an investor who has purchased a [5%, 15%] tranche backed by the 500 loan portfolio.  We will also investigate the loss distribution of the [15%, 100%] senior tranche for the given portfolio.  In addition, we will estimate the yearly distribution of observed losses for the one and five year tranches for the set of all 500 loan portfolios in a given year from 1990-2013.
 
 ##Portfolio and assumptions
 
-We assume that all active loans whose term length does not expire within the 1- and/or 5-year window are eligible for the tranche.  We select from the dataframe of total loans, a subset of active loans that meet this requirement.  
+In the first task, we use the 500 loan portfolio descibed in the previous section.  For the second task, we assume that all active loans whose term length does not expire within the 1- and/or 5-year window are eligible for the tranche.  We select from the dataframe of total loans, a subset of active loans that meet this requirement.  We neglect pre-payment of loans and ignore accrued interest when determining yearly cashflow.
 
 
 
@@ -583,18 +591,43 @@ Once the dataframe of eligible loans for the portfolio has been created, we sele
 
 ###Determine value of the portfolio of loans 
 
-Once we have our loans selected for our portfolio, we determine the value of the portfolio.  It may seem intuitive to simply add the value of each loan for the portfolio to determine the value of the tranche.  However, this method would not account for different term lengths.  For example, a loan for \$100,000 over 1-year would be more be more valuable in the 1-year tranche than a 5-year loan for \$200,000.  We account for this problem by normalizing the value of each loan by the term length.  Note, this will ignore minor discrepancies between accrued interest.  In addition, we assume that loans either default or are paid in full at the loan termination date.  Note, this assumption ignores the possibility of a borrower paying the loan off before the loan due date.
+Once we have our loans selected for our portfolio, we determine the value of the portfolio, which is driven by the annual expected cashflow assuming zero defaults.  It may seem intuitive to simply add the value of each loan for the portfolio to determine the value of the tranche.  However, this method would not account for different term lengths.  For example, a loan for \$100,000 over 1-year would be more be more valuable in the 1-year tranche than a 5-year loan for \$200,000.  We account for this problem by normalizing the value of each loan by the term length.  That is,
+
+$$ V_i = \frac{A_i}{\Delta_t}, $$
+
+where $V_i$ is the cashflow value of the $i-$th loan in the portfolio, and $\Delta_t$ is the portfolio duration (1- or 5-year in our case).  Note, this will ignore minor discrepancies between accrued interest.  In addition, we assume that loans either default or are paid in full at the loan termination date.  Note, this assumption ignores the possibility of a borrower paying the loan off before the loan due date.
 
 
 
 ###Determine the loss from the portfolio of loans
 
-In an identical manner to determining the value of the portfolio, we will determine the loss observed by the portfolio.  
+In an identical manner to determining the value of the portfolio, we will determine the loss observed by the portfolio. Note, we must account for borrowers who made payments before defaulting.  Thus,
+
+$$ l_i = \frac{t_{\text{def},i}-t_0}{\Delta_t} V_i, $$
+
+where $L_i$ is the loss value given by the $i-$th defaulting loan in the portfolio, $t_{\text{def},i}$ is the year of default for the $i-$th loan, $t_0$ is the year of the initiation of the portfolio.  Then the percent loss is given by,
+
+$$ L = \frac{\sum_i l_i}{\sum_i A_i} $$ 
 
 
 
 ###Generate loss distribution and plotting
+In this subsection, we will generate distribution plots and interpret the results.
 
+####Predicted distribution of the 500-loan portfolio by tranches
+We use the vector of percent losses, where each element is the loss from a single iteration of the simulation.  We transform the absolute loss percentage into a loss percentage for the tranche.  This transform is given by
+
+\begin{equation}
+  f(x)=\begin{cases}
+    0, & \text{if $L<a$}.\\
+    1, & \text{if $L>b$}. \\
+    \frac{1}{b-a}(L-a), &\text{otherwise}.
+  \end{cases}
+\end{equation}
+
+where $[a, b]$ are the bounds of the tranche, and $L$ is the absolute percent loss. 
+
+####Observed yearly distributions of 500-loan portfolios by tranches
 We run this simulation of selected 500 loans uniformly random from the list of active loans 1000 times, and compute the appropriate losses for each tranche.  We then plot the approximated distribution using the Kernel Density Estimator (KDE) with bounded [0,1] support.
 
 
@@ -608,4 +641,6 @@ We run this simulation of selected 500 loans uniformly random from the list of a
 See below table
 ![Distribution statistics from tranche losses by year](../scripts/Tranche/DefaultDist/analysis_table.png)
 
-We can see from the approximated density plots and the above table that in the early- to mid-90's, the [5%, 15%] tranche was only slightly more risky than the [15%, 100%] tranche.  Almost half the randomly generated portfolios generated a 0% loss in the [5%, 15%] tranche in 1997.  The senior tranche was loss-less with 75% certainty the through 2005.  However, by 2007, the [5%, 15%] tranche receives almost 100% loss, and the senior tranche received an average of 3-5% loss.  From a risk management point of view, an individual who is not entirely risk-averse would likely invest in the [5%, 15%] tranche prior to year 2000.  A completely risk-averse individual could still invest in the senior tranche with almost certainly 0% loss.  However, after the financial crisis, the [5%, 15%] tranche received 100% loss with 75% certainty, and the senior tranche received an average of 3-5% loss.  
+We can see from the approximated density plots of the observed losses seen by randomly generated portfolios, and the above table, that up until 2006 the [5%, 15%] tranche was equally risky as the [15%, 100%] tranche.  All of the randomly generated portfolios generated a 0% loss in the [5%, 15%] tranche through 2005.  The senior tranche obtained zero loss throughout the 1990-2013 timeframe.  However, from 2007-2010, the [5%, 15%] 5-year tranche receives significant loss (up to 100% in 2009-10). From a risk management point of view, an individual who is completely risk-averse would be willing to invest in the [5%, 15%] tranche prior to year 2007.  However, the risk-averse investor would have to switch to the senior tranche after 2007 in order to maintain the desired risk portfolio.  
+
+We see that during the financial crisis, the observed losses exceed the predicted losses from the model.  In the previous section, we determined that the 5Y VaR at the 95% confidence level was 5.75%, and 6.49% at the 99% level.  However, the portfolio actually observed a 6.10% loss in 5-years.  While this is within the tolerance for the 99% confidence interval, we can suspect that the financial crisis led to the increased observed losses compared to the predicted losses.

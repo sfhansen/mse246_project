@@ -800,7 +800,12 @@ of the portfolio construction date, which we determined to be 02-01-2010. The
 15 year age limit was so that estimation of 5 year ahead default probabilities 
 would be valid.  
 
-##Data Cleaning
+##Constructing Loss at Default Model 
+
+Our pipeline for constructing a model for loss at default involved 
+data cleaning, feature selection, model fitting, and evaluation. 
+
+###Data Cleaning
 
 Before fitting the loss at default model, we cleaned the training set 
 by filtering it to only include defaulted loans and by removing unnecessary
@@ -843,7 +848,7 @@ default_probs =
 preProcessSteps = c("nzv")
 ```
 
-##Feature Selection
+###Feature Selection
 
 To select the features used in the loss at default model, we performed 
 recursive feature elimination. We used 5-fold cross validation and the 
@@ -880,7 +885,7 @@ train_selected_vars <- train_with_defaults %>%
   select(one_of(selected_vars), percent_loss)
 ```
 
-##Model Fitting 
+###Model Fitting 
 
 Using the features selected by recursive feature elimination,
 we built a random forest model of loss at default. We used 5-fold 
@@ -910,13 +915,19 @@ rf.fit = train(percent_loss ~ .,
                    trControl = cvCtrl)
 ```
 
-##Model Evaluation 
+###Portfolio Prediction  
 
-###Test Set Prediction  
+Using the optimal random forest model of expected loss fitted on the training 
+set, we predicted the loss at default for loans in the portfolio. 
+Because we used `percentage loss` as the response variable,
+we applied a sigmoid transformation to the expected loss predictions to 
+ensure values ranged from 0 to 1. 
 
-We calculate the expected loss and default probability of each loan in the 
-portfolio of 500 loans by using the model of expected loss and best model
-of default probability. 
+In addition, we used our optimal Cox proportional hazards model from section 
+3.2 to estimate the one-year and five-year default probabilities of loans
+in the portfolio. This procedure resulted in a data frame of the 500 portfolio 
+loans that included the one- and five-year default probabilities along 
+with respective estimates of loss at default. 
 
 ```{r eval = FALSE}
 # Make data frame with predicted loss and default probability for each loan
@@ -937,12 +948,12 @@ prediction_df$GrossApproval <-  portfolio$GrossApproval
 prediction_df = read_rds('../data/alex_prediction_df.rds')
 ```
 
-###Simulate Distribution of Total Loss 
+##Simulating Total Loss Distribution
 
-To estimate the value at risk, we generate simulations of the loan losses 
-for the portfolio in batches. For each batch of 10'000 portfolio simulations, 
-we compute the value at risk and expected shortfall and store them. We then
-take the average value at risk and calculate confidence interval for both 
+To estimate the value at risk, we generated simulations of the loan losses 
+for the portfolio in batches. For each batch of 10,000 portfolio simulations, 
+we computed the value at risk and expected shortfall and stored them. We then
+took the average value at risk and calculated confidence interval for both 
 metrics.
 
 ```{r eval = FALSE}
@@ -1010,15 +1021,13 @@ for (j in c(1:num_sim_batch)){
 }
 ```
 
-##Plot Expected Loss Distributions
-
 ```{r echo=FALSE}
 one_year_default_result = read_rds('../data/alex_one_year_default_result.rds')
 five_year_default_result = read_rds('../data/alex_five_year_default_result.rds')
 ```
 
-The following plots show the Total loss distribution in percentage of the
-total porftolio nominal for 100'000 portfolio simulations. Further, we get
+The following plots show the total loss distribution in percentage of the
+total porftolio nominal for 100,000 portfolio simulations. Further, we get
 an average loss of `r mean(one_year_default_result$Percentage*100)`% for the 
 one year ahead period and `r mean(five_year_default_result$Percentage*100)`% for
 five years.
@@ -1039,10 +1048,10 @@ ggplot(data = five_year_default_result, aes(five_year_default_result$Percentage*
        title = "Five-Year Expected Loss Distribution from 500 Loan Portfolio")
 ```
 
-##Compute Value-at-Risk
+##Computing Value-at-Risk
 
 Following the simulations, the table below shows the VaR results and the 95 and
-99% level with a 95% confidence interval for one and five years respectively.
+99% level with a 95% confidence interval for one and five years, respectively.
 
 ```{r echo=FALSE}
 #loading stored VaR estimates
@@ -1087,12 +1096,13 @@ VaR_list <- list(var1yr, var5yr, var1yr_95, var1yr_99, var5yr_95, var5yr_99)
 ![Value at Risk results](../studies/alex_var_table.png)
 
 
-##Compute Average Value-at-Risk
+##Computing Average Value-at-Risk
 
-Similarly to the Value at Risk we compute the same metrics for the Average Value at Risk, 
-also named Expected Tail loss. This metric represents the expected loss on the portfolio 
-in the worst 1% and 5% of scenarios respectively. Again, we do this for 1 year and 5 year
-simulations.
+Similarly to our Value at Risk estimation procedure, we computed the same 
+metrics for the Average Value at Risk, also called "Expected Tail loss." 
+This metric represents the expected loss on the portfolio 
+in the worst 1% and 5% of scenarios respectively. We repeated this analysis
+for 1-year and 5-year simulations.
 
 ```{r eval = FALSE}
 ETL1yr = data.frame(
@@ -1144,8 +1154,6 @@ ggplot(data = one_year_default_result, aes(one_year_default_result$Percentage*10
 
 
 ```
-
-
 
 #Loss Distributions by Tranche
 
