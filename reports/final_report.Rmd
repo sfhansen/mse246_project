@@ -1106,22 +1106,16 @@ ETL_list <- list(ETL1yr, ETL5yr, etl1yr_95, etl1yr_99, etl5yr_95, etl5yr_99)
 
 ![Expected Tail loss results](../studies/alex_etl_table_png.png)
 
-##Interpretation and Risk Analysis
-
-- To be discussed at Thursday meeting. 
-- I think we should run this pipeline for portfolios from different time periods
-
 ```{r echo=FALSE}
 ggplot(data = one_year_default_result, aes(one_year_default_result$Percentage*100)) +
   geom_histogram(position = "identity") +
   geom_vline(xintercept = VaR_list[3][[1]]$Mean*100, linetype = "longdash", show.legend = T, color="darkgreen") + 
-  geom_vline(xintercept = VaR_list[4][[1]]$Mean*100, linetype = "longdash", show.legend = T, color="darkgreen") + 
+  # geom_vline(xintercept = VaR_list[4][[1]]$Mean*100, linetype = "longdash", show.legend = T, color="darkgreen") + 
   geom_vline( xintercept = ETL_list[3][[1]]$Mean*100, linetype = "longdash", show.legend = T, color="red") + 
-  geom_vline(xintercept = ETL_list[4][[1]]$Mean*100, linetype = "longdash", show.legend = T, color="red") + 
+  # geom_vline(xintercept = ETL_list[4][[1]]$Mean*100, linetype = "longdash", show.legend = T, color="red") + 
   labs(x = "Total Loss at Default from 500 Loans", y = "Count", 
-       title = "One-Year Expected Loss Distribution from 500 Loan Portfolio")
-
-
+       title = "One-Year Expected Loss Distribution from 500 Loan Portfolio") +
+  annotate("text", x = c(3.3,3.3), y = c(11000,10500), label =c("VaR 95%", "ETL 95%"), colour = c("darkgreen", "red"))
 ```
 
 #Loss Distributions by Tranche
