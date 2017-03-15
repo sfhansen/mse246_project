@@ -1106,16 +1106,43 @@ ETL_list <- list(ETL1yr, ETL5yr, etl1yr_95, etl1yr_99, etl5yr_95, etl5yr_99)
 
 ![Expected Tail loss results](../studies/alex_etl_table_png.png)
 
+##Analysis of Results
+
+The following two plots represent the 1 year and 5 year total loss distributions 
+from our boostrap. For each of plot, we also add a visualisation of the VaR and AVaR
+as well as a representation of the actual realised loss from our randomly sampled
+portfolio. We can observe that the realised loss for the 1 year distribution is relatively
+close to the mean (within 0.5 $\sigma$). On the other hand the 5 year realised losses
+are at the very tail of our estimated distribution. This is due to the fact that our model,
+while predicting the probability of default accurately seems to underestimate the loss at default.
+
 ```{r echo=FALSE}
-ggplot(data = one_year_default_result, aes(one_year_default_result$Percentage*100)) +
+realised_loss_file = '../data/realised_losses.rds'
+realised_losses = read_rds(realised_loss_file)
+
+ggplot(data = one_year_default_result, aes(one_year_default_result$Percentage)) +
   geom_histogram(position = "identity") +
-  geom_vline(xintercept = VaR_list[3][[1]]$Mean*100, linetype = "longdash", show.legend = T, color="darkgreen") + 
-  # geom_vline(xintercept = VaR_list[4][[1]]$Mean*100, linetype = "longdash", show.legend = T, color="darkgreen") + 
-  geom_vline( xintercept = ETL_list[3][[1]]$Mean*100, linetype = "longdash", show.legend = T, color="red") + 
-  # geom_vline(xintercept = ETL_list[4][[1]]$Mean*100, linetype = "longdash", show.legend = T, color="red") + 
-  labs(x = "Total Loss at Default from 500 Loans", y = "Count", 
+  scale_x_continuous(labels = scales::percent) + 
+  scale_y_continuous(labels = scales::comma) + 
+  geom_vline(xintercept = VaR_list[3][[1]]$Mean, linetype = "longdash", show.legend = T, color="darkgreen") + 
+  geom_vline( xintercept = ETL_list[3][[1]]$Mean, linetype = "longdash", show.legend = T, color="red") + 
+  geom_vline( xintercept = realised_losses$loss_1yr/100, linetype = "longdash", show.legend = T, color= "darkblue") +
+  labs(x = "Total Percentage Loss on Porfolio", y = "Count", 
        title = "One-Year Expected Loss Distribution from 500 Loan Portfolio") +
-  annotate("text", x = c(3.3,3.3), y = c(11000,10500), label =c("VaR 95%", "ETL 95%"), colour = c("darkgreen", "red"))
+  annotate("text", x = c(0.033,0.033, 0.033), y = c(11000,10500,10000), 
+           label =c("VaR 95%", "ETL 95%", "Realised Loss"), colour = c("darkgreen", "red", "darkblue"))
+
+ggplot(data = five_year_default_result, aes(five_year_default_result$Percentage)) +
+  geom_histogram(position = "identity") +
+  scale_x_continuous(labels = scales::percent) + 
+  scale_y_continuous(labels = scales::comma) + 
+  geom_vline(xintercept = VaR_list[5][[1]]$Mean, linetype = "longdash", show.legend = T, color="darkgreen") + 
+  geom_vline( xintercept = ETL_list[5][[1]]$Mean, linetype = "longdash", show.legend = T, color="red") + 
+  geom_vline( xintercept = realised_losses$loss_5yr/100, linetype = "longdash", show.legend = T, color= "darkblue") + 
+  labs(x = "Total Percentage Loss on Porfolio", y = "Count", 
+       title = "Five-Year Expected Loss Distribution from 500 Loan Portfolio") +
+  annotate("text", x = c(0.095,0.095, 0.095), y = c(11500,11000,10500), 
+           label =c("VaR 95%", "ETL 95%", "Realised Loss"), colour = c("darkgreen", "red", "darkblue"))
 ```
 
 #Loss Distributions by Tranche
