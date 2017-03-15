@@ -2,6 +2,8 @@
 title: "MS&E 246 Final Report"
 author: "Samuel Hansen, Theo Vadpey, Alex Elkrief, Ben Etringer"
 date: "2/23/2017"
+header-includes:
+   - \usepackage{subcaption}
 output:
   html_document:
     keep_md: yes
