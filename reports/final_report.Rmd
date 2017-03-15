@@ -762,8 +762,25 @@ We fit models varying $\alpha$ and $\lambda$ in the above penalty. The best mode
 
 $$\text{dev.ratio} := 2(\hat{L}_\text{fit} - \hat{L}_\text{null})$$
 
+\begin{figure}
+\centering
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=350pt,height=620pt]{../studies/heatmap.pdf}
+  \caption{A subfigure}
+  \label{fig:sub1}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=350pt,height=620pt]{../studies/ftrs_heatmap.pdf}
+  \caption{A subfigure}
+  \label{fig:sub2}
+\end{subfigure}
+\caption{A figure with two subfigures}
+\label{fig:test}
+\end{figure}
+
 \begin{center}      
-\includegraphics[width=350pt,height=620pt]{../studies/heatmap.pdf}
 \end{center}
 	
 The best model, in terms had a value of $\lambda$ very close to 0, and $\alpha$ very close to 0 (the ridge penalty). Ninety-seven variables of the original 201 had non-zero coefficients.
