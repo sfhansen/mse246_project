@@ -21,8 +21,7 @@ the loss distributions of tranches backed by a portfolio of loans.
 Prior to model building, we explored the data to detect patterns that may 
 provide signal for models of loan default. Because we first aimed to build 
 binary response models of default probability, we excluded "Exempt" loans from 
-our exploratory analysis. Subsequently, we examined the relationship between 
-default rates and the predictor variables, including `Business Type`, 
+our exploratory analysis. When we fit survival models (*see Cox Proportional Hazards Models section*), "Exempt" loans are reintroduced into the population under consideration as right-censored observations. **All patterns observed in the data for this section cannot be assumed when "Exempt" observations are included.** Subsequently, we examined the relationship between default rates and the predictor variables, including `Business Type`, 
 `Loan Amount`, `NAICS Code`, and `Subprogram Type`, among others. 
 
 Further, we collected additional predictor variables such as monthly 
@@ -362,7 +361,7 @@ performance on the test set in terms of AUC and calibration.
 
 
 	
-Survival analysis gives more detailed information about how the default risk of a loan varies over time. With binary classification, we estimated the probability that a given loan *ever* defaults. With a hazard model, we are able to estimate the probability that a loan defaults between any two points of time in its life.
+Survival analysis gives more detailed information about how the default risk of a loan varies over time. With binary classification, we estimated models to predict probability that a given loan *ever* defaults. With a hazard model, we are able to estimate the probability that a loan defaults between any two points of time in its life.
 
 ###Model Choice
 
@@ -386,17 +385,19 @@ $$ = \frac{h_j(t_j)}{\sum_{i = k_0}^{k_q} h_i(t_j)} = \frac{h_0(t_j) exp(\beta^T
 And we can see that the contribution of any observation to the likelihood function will not be dependent on $h_0(t)$. $\square$
 	      
 ###Modifications to the Data
+**It is important to note that from this part of the project moving forward, "Exempt" loans are included.** New 70-30 training and test sets were created which include these previously excluded observations. 
 
-Roughly 95% of loans in the training data set had a term of 20 years. We decided that considering loans with the same term was more appropriate for this analysis (84,949 loans). 
-Within the training data, about 86\% of loans were right censored (term did not expire in window, and did not default), about 7\% of loans were paid off (term expired in window), and about 7% of loans defaulted within the window (figure 1). 
+Additionally, roughly 95% of loans in the training data had term lengths of 20 years. We decided that considering loans with the same term was more appropriate for this analysis (84,949 loans).\footnote{One might imagine how fitting a model to predict default probabilities $t$ years ahead on data where most loans are of a certain term length, might give misleading output when predicting on a loan with a different term length. E.g., two loans of the same age, and identical feature vectors would have the same probability of default $t$ years ahead. But one of the loans might expire in fewer than $t$ years. Thus, the default probability estimated for the shorter term loan would have been over a smaller interval than intended (because a loan cannot default when it has expired).} 
+
+Within the training data, about 86\% of loans were right censored (term did not expire in window, and did not default), about 7\% of loans were paid off (term expired in window), and about 7% of loans defaulted within the window (see figure below). 
 		
-![Loans in training data by status](final_report_files/figure-html/distribution-1.png)
+<img src="final_report_files/figure-html/distribution-1.png" style="display: block; margin: auto;" />
 
-Polynomial terms up to *degree five* were added for all numeric variables. Our intention was to include these features to capture non-linearities in these variables, and conduct feature selection during model fitting (through regularization).
+Polynomial terms up to *degree five* were added for all numeric variables. Our intention was to include these features to capture non-linearities in these variables, and conduct feature selection during model fitting (through the addition of a penalty term).
 
-Further, all numeric variables were centered to 0, and scaled by standard deviation.
+All numeric variables were centered to 0, and scaled by standard deviation, as was the case for the binary models.
 	   
-Missing values were set to 0 and an missing value indicator feature was added for each original variable.	   
+Missing values were set to 0 and a missing value indicator feature was added for each original variable.	   
       
 Including expanded categorical variables, polynomials, and missing value dummies, the data had 201 features.
       
@@ -421,10 +422,29 @@ For the purpose of feature selection, we fit a series of penalized Cox models to
 We used an elastic net penalty-- a penalty term that is a linear combination of the $l_1$ and $l_2$ penalties.
    $$\lambda [ (1-\alpha)||\beta||_2 + \alpha||\beta||_1]$$
    
-We fit models varying $\alpha$ and $\lambda$ in the penalty-- we selected the model with the largest evaluated value of the likelihood function.
+We fit models varying $\alpha$ and $\lambda$ in the above penalty. The best model was determined using a goodness of fit measure defined by the `glmnet` package in R called `dev.ratio`. It is a measure of the difference between the maximized likelihood of the null model and that of the fit model: 
+
+$$\text{dev.ratio} := 2(\hat{L}_\text{fit} - \hat{L}_\text{null})$$
+
+\begin{figure}
+\centering
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=350pt,height=620pt]{../studies/heatmap.pdf}
+  \caption{`dev.ratio` values}
+  \label{fig:sub1}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=350pt,height=620pt]{../studies/ftrs_heatmap.pdf}
+  \caption{Number of features with non-zero coefficients}
+  \label{fig:sub2}
+\end{subfigure}
+\caption{A figure with two subfigures}
+\label{fig:test}
+\end{figure}
 
 \begin{center}      
-\includegraphics[width=350pt,height=620pt]{../studies/heatmap.pdf}
 \end{center}
 	
 The best model, in terms had a value of $\lambda$ very close to 0, and $\alpha$ very close to 0 (the ridge penalty). Ninety-seven variables of the original 201 had non-zero coefficients.
@@ -564,12 +584,17 @@ for 1-year and 5-year simulations.
 
 ![Expected Tail loss results](../studies/alex_etl_table_png.png)
 
-##Interpretation and Risk Analysis
+##Analysis of Results
 
-- To be discussed at Thursday meeting. 
-- I think we should run this pipeline for portfolios from different time periods
+The following two plots represent the 1 year and 5 year total loss distributions 
+from our boostrap. For each of plot, we also add a visualisation of the VaR and AVaR
+as well as a representation of the actual realised loss from our randomly sampled
+portfolio. We can observe that the realised loss for the 1 year distribution is relatively
+close to the mean (within 0.5 $\sigma$). On the other hand the 5 year realised losses
+are at the very tail of our estimated distribution. This is due to the fact that our model,
+while predicting the probability of default accurately seems to underestimate the loss at default.
 
-![](final_report_files/figure-html/unnamed-chunk-34-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-34-1.png)<!-- -->![](final_report_files/figure-html/unnamed-chunk-34-2.png)<!-- -->
 
 #Loss Distributions by Tranche
 

@@ -2,8 +2,6 @@
 title: "MS&E 246 Final Report"
 author: "Samuel Hansen, Theo Vadpey, Alex Elkrief, Ben Etringer"
 date: "2/23/2017"
-header-includes:
-   - \usepackage{subcaption}
 output:
   html_document:
     keep_md: yes
@@ -11,6 +9,7 @@ output:
     toc: yes
   pdf_document:
     toc: yes
+header-includes: \usepackage{subcaption}
 ---
 
 ```{r setup, include=FALSE}
@@ -719,21 +718,29 @@ And we can see that the contribution of any observation to the likelihood functi
 
 Additionally, roughly 95% of loans in the training data had term lengths of 20 years. We decided that considering loans with the same term was more appropriate for this analysis (84,949 loans).\footnote{One might imagine how fitting a model to predict default probabilities $t$ years ahead on data where most loans are of a certain term length, might give misleading output when predicting on a loan with a different term length. E.g., two loans of the same age, and identical feature vectors would have the same probability of default $t$ years ahead. But one of the loans might expire in fewer than $t$ years. Thus, the default probability estimated for the shorter term loan would have been over a smaller interval than intended (because a loan cannot default when it has expired).} 
 
-Within the training data, about 86\% of loans were right censored (term did not expire in window, and did not default), about 7\% of loans were paid off (term expired in window), and about 7% of loans defaulted within the window. 
+Within the training data, about 86\% of loans were right censored (term did not expire in window, and did not default), about 7\% of loans were paid off (term expired in window), and about 7% of loans defaulted within the window (see figure below). 
 		
-```{r distribution, eval=T,echo=F,fig.height=3.5,fig.width=3.5,fig.cap="Loans in training data by status"}
+```{r distribution, eval=T,echo=F,fig.height=3.5,fig.width=3.5, fig.align='center'}
 descrip_status = table(status_m)
 names(descrip_status) = c("right_censored","paid_off","defaulted")
-par(cex.axis=0.85,cex.lab=0.85,cex=0.85)
-barplot(descrip_status/length(status_m),
-        ylab='percent of training data')
+descrip_status %>%
+  as_data_frame() %>%
+  plyr::rename(replace = c("Var1" = "loan_status")) %>%
+  mutate(percentage = n/sum(n)) %>%
+  ggplot(mapping = aes(x = reorder(loan_status, -percentage), y = percentage)) +
+  geom_col() +
+  scale_y_continuous(breaks = seq(0,0.8,0.1),
+                     labels = percent) +
+  labs(x = "Loan Status",
+       y = "Percent of Training Data",
+       title = "Loans in Training Data by Status")
 ```	
 
 Polynomial terms up to *degree five* were added for all numeric variables. Our intention was to include these features to capture non-linearities in these variables, and conduct feature selection during model fitting (through the addition of a penalty term).
 
 All numeric variables were centered to 0, and scaled by standard deviation, as was the case for the binary models.
 	   
-Missing values were set to 0 and an missing value indicator feature was added for each original variable.	   
+Missing values were set to 0 and a missing value indicator feature was added for each original variable.	   
       
 Including expanded categorical variables, polynomials, and missing value dummies, the data had 201 features.
       
