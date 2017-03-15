@@ -756,7 +756,9 @@ For the purpose of feature selection, we fit a series of penalized Cox models to
 We used an elastic net penalty-- a penalty term that is a linear combination of the $l_1$ and $l_2$ penalties.
    $$\lambda [ (1-\alpha)||\beta||_2 + \alpha||\beta||_1]$$
    
-We fit models varying $\alpha$ and $\lambda$ in the penalty-- we selected the model with the largest evaluated value of the likelihood function.
+We fit models varying $\alpha$ and $\lambda$ in the above penalty. The best model was determined using a goodness of fit measure defined by the `glmnet` package in R called `dev.ratio`. It is a measure of the difference between the maximized likelihood of the null model and that of the fit model: 
+
+$$\text{dev.ratio} := 2(\hat{L}_\text{fit} - \hat{L}_\text{null})$$
 
 \begin{center}      
 \includegraphics[width=350pt,height=620pt]{../studies/heatmap.pdf}
