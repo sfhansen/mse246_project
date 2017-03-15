@@ -64,8 +64,7 @@ the loss distributions of tranches backed by a portfolio of loans.
 Prior to model building, we explored the data to detect patterns that may 
 provide signal for models of loan default. Because we first aimed to build 
 binary response models of default probability, we excluded "Exempt" loans from 
-our exploratory analysis. Subsequently, we examined the relationship between 
-default rates and the predictor variables, including `Business Type`, 
+our exploratory analysis. When we fit survival models (*see Cox Proportional Hazards Models section*), "Exempt" loans are reintroduced into the population under consideration as right-censored observations. **All patterns observed in the data for this section cannot be assumed when "Exempt" observations are included.** Subsequently, we examined the relationship between default rates and the predictor variables, including `Business Type`, 
 `Loan Amount`, `NAICS Code`, and `Subprogram Type`, among others. 
 
 Further, we collected additional predictor variables such as monthly 
@@ -690,7 +689,7 @@ load('../data/cox_data_environment_train.RData')
 source('../scripts/cox_diagnostic_functions.R')
 ```
 	
-Survival analysis gives more detailed information about how the default risk of a loan varies over time. With binary classification, we estimated the probability that a given loan *ever* defaults. With a hazard model, we are able to estimate the probability that a loan defaults between any two points of time in its life.
+Survival analysis gives more detailed information about how the default risk of a loan varies over time. With binary classification, we estimated models to predict probability that a given loan *ever* defaults. With a hazard model, we are able to estimate the probability that a loan defaults between any two points of time in its life.
 
 ###Model Choice
 
@@ -714,8 +713,10 @@ $$ = \frac{h_j(t_j)}{\sum_{i = k_0}^{k_q} h_i(t_j)} = \frac{h_0(t_j) exp(\beta^T
 And we can see that the contribution of any observation to the likelihood function will not be dependent on $h_0(t)$. $\square$
 	      
 ###Modifications to the Data
+**It is important to note that from this part of the project moving forward, "Exempt" loans are included.** New 70-30 training and test sets were created which include these previously excluded observations. 
 
-Roughly 95% of loans in the training data set had a term of 20 years. We decided that considering loans with the same term was more appropriate for this analysis (84,949 loans). 
+Additionally, roughly 95% of loans in the training data had term lengths of 20 years. We decided that considering loans with the same term was more appropriate for this analysis (84,949 loans).\footnote{One might imagine how fitting a model to predict default probabilities $t$ years ahead on data where most loans are of a certain term length, might give misleading output when predicting on a loan with a different term length. E.g., two loans of the same age, and identical feature vectors would have the same probability of default $t$ years ahead. But one of the loans might expire in fewer than $t$ years. Thus, the default probability estimated for the shorter term loan would have been over a smaller interval than intended (because a loan cannot default when it has expired).} 
+
 Within the training data, about 86\% of loans were right censored (term did not expire in window, and did not default), about 7\% of loans were paid off (term expired in window), and about 7% of loans defaulted within the window (figure 1). 
 		
 ```{r distribution, eval=T,echo=F,fig.height=3.5,fig.width=3.5,fig.cap="Loans in training data by status"}
@@ -726,9 +727,9 @@ barplot(descrip_status/length(status_m),
         ylab='percent of training data')
 ```	
 
-Polynomial terms up to *degree five* were added for all numeric variables. Our intention was to include these features to capture non-linearities in these variables, and conduct feature selection during model fitting (through regularization).
+Polynomial terms up to *degree five* were added for all numeric variables. Our intention was to include these features to capture non-linearities in these variables, and conduct feature selection during model fitting (through the addition of a penalty term).
 
-Further, all numeric variables were centered to 0, and scaled by standard deviation.
+All numeric variables were centered to 0, and scaled by standard deviation, as was the case for the binary models.
 	   
 Missing values were set to 0 and an missing value indicator feature was added for each original variable.	   
       
