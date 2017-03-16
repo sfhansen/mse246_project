@@ -863,7 +863,7 @@ The best model, in terms had a value of $\lambda$ very close to 0, and $\alpha$ 
     
 ###One Year and Five Year Predictions of Default (out of sample)
 
-The below figures show the out of sample performance of the one and five year 
+The below figures show the out of sample performance of the one and five year ahead
 probabilities estimated by the Cox model for active loans as of February, 1 2010. This date was arbitrarily selected, but is the date at which we will construct the 500 loan portfolio in the following sections:   
 
 \begin{center}   
