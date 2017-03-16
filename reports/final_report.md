@@ -27,8 +27,7 @@ our exploratory analysis. When we fit survival models (*see Cox Proportional Haz
 Further, we collected additional predictor variables such as monthly 
 `GDP`, `Crime Rate`, and `Unemployment Rate` by State, as well as macroeconomic
 predictors such as monthly measures of the `S&P 500`, `Consumer Price Index`, 
-and 14 other volatility market indices (see "Data Cleaning" section for 
-data collection details). 
+and 14 other volatility market indices.
 
 ##Default Rate vs. Business Type 
 
@@ -93,6 +92,38 @@ In order to reduce to the dimensionality of the feature space, we collapsed
 these two factor levels into "Other."
 
 ![](final_report_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
+
+##Volatility Indices
+
+In addition to visualizing loan default risk for variables in the provided data,
+we also examined how volatility market indices fluctuated from 1990-2014.
+Visualizing such time-varying patterns can yield insight into how various 
+indices respond macroeconomic indicators of risk. The following plot includes 
+these indices, as well as the S&P 500 and Consumer Price Index (CPI) (see "Data Cleaning" section for data collection details). Further, the official
+period of the Great Recession (December 2007 - June 2009) is highlighted in grey. This plot acts as a sanity check for data quality because `VIX` and 
+`~VXO`, which both capture market volatility, spike during the recession. 
+Further, the SP& 500 plummets, and the CPI spikes despite its gradual rise.
+Many other volatility market indices, which are labeled by their abbreviations,
+decline during the recession as well. Taken together, this plot validates 
+our intuitions about how macroeconomic risk indicators responded to the Great 
+Recession. 
+
+![](final_report_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
+
+##State Unemployment Rates
+
+Lastly, we visualized changes in unemployment rates by State
+because it may also be predictive of loan default probability. As depicted 
+in the figure below, nearly all States experienced sudden increases in 
+unemployment rates during the recession. Interestingly, we observe
+different patterns in magnitudes and rates of increase across different States.
+This plot also acts as a sanity check by confirming various expectations,
+including Puerto Rico's (PR) consistently higher unemployment rate, and 
+Michigan's unemployment spike due largely to manufacturing layoffs during the 
+recession. Such State-by-State variation may offer predictive power 
+for subsequent models. 
+
+![](final_report_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
 
 #Modeling Default Probability 
 
@@ -190,7 +221,7 @@ chose 122
 variables because AUC is maximized (see plot below). In effect, all variables
 were kept because they offered predictive power regarding loan defaults. 
 
-![](final_report_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
 
 The importances of the top 10 selected features are shown in the plot below.
 We observe that State GDP, a monthly time-dependent risk factor, is the most 
@@ -207,7 +238,7 @@ defaulting. Lastly, the importances of the Collar Index (CLL) and Iron
 Butterfly Index (BFLY) imply market volatility measures also improve 
 the discrimination of loan defaults. 
 
-![](final_report_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
 
 ###Model Fitting 
 
@@ -230,7 +261,7 @@ indicated by the spike in the red curve at `alpha` = 0.1. This implies the
 optimal model used the ridge penalty more than the LASSO penalty with minimal 
 regularization. 
 
-![](final_report_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
 
 ####Random Forest Classifier
 
@@ -240,7 +271,7 @@ to build each tree of the random forest. The plot below shows steadily declining
 AUC as the number of randomly chosen predictors increases, indicating that
 the optimal model is sparsest. 
 
-![](final_report_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
 
 ####Gradient Boosting Machine Classifier
 
@@ -254,7 +285,7 @@ resulting in the optimal model with 100 trees of maximum depth 6 that subsamples
 of optimal hyper-parameters is shown by the spike of the red curve in the first 
 subplot at the maximum tree depth of 6.  
 
-![](final_report_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
 
 Examining the variable importance of the final GBM model, we observe the most 
 important feature for predicting defaults is the Collar Index (CLL), which is
@@ -266,7 +297,7 @@ Butterfly Index (BFLY), the Iron Condor Index (CNDR), and the Volatility index
 (VIX). Such variables are "important" because they lead to the greatest 
 improvements to cross-validated AUC across boosting iterations. 
 
-![](final_report_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
 
 ###Model Evaluation 
 
@@ -285,7 +316,7 @@ that the gradient boosting machine classifier has the highest AUC and
 sensitivity, whereas the logistic regression model with the elastic net penalty
 performs the worst. 
 
-![](final_report_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
 
 #####Distribution of Resampled Training AUC, Sensitivity, and Specificity 
 
@@ -300,7 +331,7 @@ models, suggesting it is prone to overfitting. For this reason, the logistic
 regression classifier (a linear model) outperforms the random forest classifier
 (a non-linear model) in terms of AUC and specificity. 
 
-![](final_report_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
 
 #####Training ROC Curves 
 
@@ -311,7 +342,7 @@ performs worse than the random forest model on the training data, but likely
 because it is avoiding overfitting. The logistic regression model with the 
 elastic net penalty performs the worst. 
 
-![](final_report_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-19-1.png)<!-- -->
 
 ####Out-of-Sample Evaluation 
 
@@ -326,7 +357,7 @@ all models achieve good performance over "random guessing" baselines.
 
 
 
-![](final_report_files/figure-html/unnamed-chunk-19-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-21-1.png)<!-- -->
 
 #####Test Calibration Plots
 
@@ -343,7 +374,7 @@ penalty achieves comparable performance; however, the random forest classifier
 tends to overestimate default probabilities. Again, this weaker performance 
 is likely due to overfitting. 
 
-![](final_report_files/figure-html/unnamed-chunk-20-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-22-1.png)<!-- -->
 
 The overfitting of the random forest classifier may be due to the fact that 
 too many features were randomly selected to build trees at each
@@ -506,7 +537,7 @@ plot below, cross-validated RMSE is minimized at 121 variables, the maximum
 possible. In this way, all features were included in the model of loss at 
 default. 
 
-![](final_report_files/figure-html/unnamed-chunk-23-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-25-1.png)<!-- -->
 
 ###Model Fitting 
 
@@ -518,7 +549,7 @@ tree. As shown in the figure below, cross-validated RMSE was minimized
 at `mtry` = 2, meaning the optimal random forest model used 2 random predictors
 to make each split. 
 
-![](final_report_files/figure-html/unnamed-chunk-24-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-26-1.png)<!-- -->
 
 ###Portfolio Prediction  
 
@@ -556,9 +587,9 @@ an average loss of 0.7519071% for the
 one year ahead period and 4.1222375% for
 five years.
 
-![](final_report_files/figure-html/unnamed-chunk-29-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-31-1.png)<!-- -->
 
-![](final_report_files/figure-html/unnamed-chunk-30-1.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-32-1.png)<!-- -->
 
 ##Computing Value-at-Risk
 
@@ -594,7 +625,7 @@ close to the mean (within 0.5 $\sigma$). On the other hand the 5 year realised l
 are at the very tail of our estimated distribution. This is due to the fact that our model,
 while predicting the probability of default accurately seems to underestimate the loss at default.
 
-![](final_report_files/figure-html/unnamed-chunk-34-1.png)<!-- -->![](final_report_files/figure-html/unnamed-chunk-34-2.png)<!-- -->
+![](final_report_files/figure-html/unnamed-chunk-36-1.png)<!-- -->![](final_report_files/figure-html/unnamed-chunk-36-2.png)<!-- -->
 
 #Loss Distributions by Tranche
 

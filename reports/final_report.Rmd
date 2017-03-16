@@ -43,7 +43,8 @@ eda_data <-
 
 # Read in data for EDA with external variables 
 full_data <-
-  read_rds(full_file_in)
+  read_rds(full_file_in) %>%
+  plyr::rename(replace = c("cpi" = "CPI"))
 
 # Read in train and test data 
 train <- read_rds(train_file_in)
@@ -71,8 +72,7 @@ our exploratory analysis. When we fit survival models (*see Cox Proportional Haz
 Further, we collected additional predictor variables such as monthly 
 `GDP`, `Crime Rate`, and `Unemployment Rate` by State, as well as macroeconomic
 predictors such as monthly measures of the `S&P 500`, `Consumer Price Index`, 
-and 14 other volatility market indices (see "Data Cleaning" section for 
-data collection details). 
+and 14 other volatility market indices.
 
 ##Default Rate vs. Business Type 
 
@@ -200,6 +200,75 @@ eda_data %>%
   scale_color_discrete(name = "Subprogram Type") + 
   labs(x = "Count of Subprogram", y = "Default Rate",
        title = "Default Rate vs. Subprogram Type")
+```
+
+##Volatility Indices
+
+In addition to visualizing loan default risk for variables in the provided data,
+we also examined how volatility market indices fluctuated from 1990-2014.
+Visualizing such time-varying patterns can yield insight into how various 
+indices respond macroeconomic indicators of risk. The following plot includes 
+these indices, as well as the S&P 500 and Consumer Price Index (CPI) (see "Data Cleaning" section for data collection details). Further, the official
+period of the Great Recession (December 2007 - June 2009) is highlighted in grey. This plot acts as a sanity check for data quality because `VIX` and 
+`~VXO`, which both capture market volatility, spike during the recession. 
+Further, the SP& 500 plummets, and the CPI spikes despite its gradual rise.
+Many other volatility market indices, which are labeled by their abbreviations,
+decline during the recession as well. Taken together, this plot validates 
+our intuitions about how macroeconomic risk indicators responded to the Great 
+Recession. 
+
+```{r, fig.width=10, fig.height=10}
+full_data %>%
+  gather(market, value, c(SP500, CPI, BXMSM:PPUT)) %>%
+  distinct(month = month(ApprovalDate), year = year(ApprovalDate), 
+           market, value) %>%
+  mutate(date = ISOdate(year, month, 1)) %>%
+  dmap_at("date", as.Date) %>%
+  ggplot(mapping = aes(x = date, value)) +
+  geom_line() +
+  geom_rect(
+    aes(xmin = as.Date('2007-12-01'), 
+        xmax = as.Date('2009-06-01'), 
+        ymin = -Inf, 
+        ymax = Inf), 
+        alpha = 0.01,
+    fill = 'grey') +
+  facet_wrap(~market, scales = "free_y") + 
+  scale_x_date(date_labels = "'%y") + 
+  labs(x = "Date", 
+       y = "Index Value",
+       title = "Volatility Market Indices from 1990-2014")
+```
+
+##State Unemployment Rates
+
+Lastly, we visualized changes in unemployment rates by State
+because it may also be predictive of loan default probability. As depicted 
+in the figure below, nearly all States experienced sudden increases in 
+unemployment rates during the recession. Interestingly, we observe
+different patterns in magnitudes and rates of increase across different States.
+This plot also acts as a sanity check by confirming various expectations,
+including Puerto Rico's (PR) consistently higher unemployment rate, and 
+Michigan's unemployment spike due largely to manufacturing layoffs during the 
+recession. Such State-by-State variation may offer predictive power 
+for subsequent models. 
+
+```{r, fig.width=10, fig.height=10}
+full_data %>%
+  distinct(month = month(ApprovalDate), year = year(ApprovalDate), 
+           BorrState, unemploy_rate) %>%
+  mutate(date = ISOdate(year, month, 1),
+         unemploy_rate = unemploy_rate / 100) %>%
+  dmap_at("date", as.Date) %>%
+  ggplot(mapping = aes(x = date, y = unemploy_rate, color = BorrState)) +
+  geom_line() +
+  scale_x_date(date_labels = "'%y") + 
+  scale_color_discrete(guide = FALSE) +
+  scale_y_continuous(labels = comma) + 
+  facet_wrap(~BorrState, scales = "free_y") +
+  labs(x = "",
+       y = "Monthly Umeployment Rate (%)",
+       title = "Unemployment Rate by State from 1990-2014")
 ```
 
 #Modeling Default Probability 
