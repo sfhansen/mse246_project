@@ -834,7 +834,7 @@ For the purpose of feature selection, we fit a series of penalized Cox models to
 We used an elastic net penalty-- a penalty term that is a linear combination of the $l_1$ and $l_2$ penalties.
    $$\lambda [ (1-\alpha)||\beta||_2 + \alpha||\beta||_1]$$
    
-We fit models varying $\alpha$ and $\lambda$ in the above penalty. The best model was determined using a goodness of fit measure defined by the `glmnet` package in R called `dev.ratio`. It is a measure of the difference between the maximized likelihood of the null model and that of the fit model: 
+We fit models varying $\alpha$ and $\lambda$ in the above penalty. The best model was determined using a goodness of fit measure defined by the `glmnet` package in R called `dev.ratio`. It is a measure of the difference between the maximized likelihood of the null model (no covariates) and that of the fit model: 
 
 $$\text{dev.ratio} := 2(\hat{L}_\text{fit} - \hat{L}_\text{null})$$
 
@@ -864,7 +864,7 @@ The best model, in terms had a value of $\lambda$ very close to 0, and $\alpha$ 
 ###One Year and Five Year Predictions of Default (out of sample)
 
 The below figures show the out of sample performance of the one and five year 
-probabilities estimated by the Cox model:   
+probabilities estimated by the Cox model for active loans as of February, 1 2010. This date was arbitrarily selected, but is the date at which we will construct the 500 loan portfolio in the following sections:   
 
 \begin{center}   
 \includegraphics[width=315pt,height=300pt]{../studies/p_1_roc_curve.pdf}
