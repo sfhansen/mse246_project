@@ -318,8 +318,8 @@ features.
 
 In addition to constructing features from the raw data, we also incorporated 
 data from external sources, including monthly State-based measures of 
-crime rate, GDP, and unemployment rate. We also joined in time-varying risk 
-factors, including monthly snapshots of the `S&P 500`, `Consumer Price Index`, 
+crime rate, GDP, and unemployment rate. We also joined in various risk 
+factors at the time of loan approval, including monthly snapshots of the `S&P 500`, `Consumer Price Index`, 
 and 14 other volatility market indices. 
 
 - BEN: Fill in where the data came from and any other important info 
