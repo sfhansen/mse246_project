@@ -72,7 +72,7 @@ our exploratory analysis. When we fit survival models (*see Cox Proportional Haz
 Further, we collected additional predictor variables such as monthly 
 `GDP`, `Crime Rate`, and `Unemployment Rate` by State, as well as macroeconomic
 predictors such as monthly measures of the `S&P 500`, `Consumer Price Index`, 
-and 14 other volatility market indices. **It is important to note the way in which we appended these variables to our data. For a given loan, we included the GDP, crime rate, unemployment rate, etc, at the time the loan was approved. So when we speak of the crime rate (for example) for a given loan, we mean the crime rate at the time the loan approved. Thus, these quantities are known and fixed for a given loan at approval, they do not vary in time when we make forward predictions later on in the project.**
+and 14 other volatility market indices. **It is important to note the way in which we appended these variables to our data. For a given loan, we included the GDP, crime rate, unemployment rate, etc, at the time the loan was approved. So when we speak of the crime rate (for example) for a given loan, we mean the crime rate at the time the loan approved. Thus, these quantities are known and fixed for a given loan at approval.**
 
 ##Default Rate vs. Business Type 
 
