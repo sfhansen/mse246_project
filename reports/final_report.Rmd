@@ -72,7 +72,7 @@ our exploratory analysis. When we fit survival models (*see Cox Proportional Haz
 Further, we collected additional predictor variables such as monthly 
 `GDP`, `Crime Rate`, and `Unemployment Rate` by State, as well as macroeconomic
 predictors such as monthly measures of the `S&P 500`, `Consumer Price Index`, 
-and 14 other volatility market indices.
+and 14 other volatility market indices. **It is important to note the way in which we appended these variables to our data. For a given loan, we included the GDP, crime rate, unemployment rate, etc, at the time the loan was approved. So when we speak of the crime rate (for example) for a given loan, we mean the crime rate at the time the loan approved. Thus, these quantities are known and fixed for a given loan at approval, they do not vary in time when we make forward predictions later on in the project.**
 
 ##Default Rate vs. Business Type 
 
@@ -863,7 +863,7 @@ The best model, in terms had a value of $\lambda$ very close to 0, and $\alpha$ 
 ###One Year and Five Year Predictions of Default (out of sample)
 
 The below figures show the out of sample performance of the one and five year ahead
-probabilities estimated by the Cox model for active loans as of February, 1 2010. This date was arbitrarily selected, but is the date at which we will construct the 500 loan portfolio in the following sections:   
+probabilities estimated by the Cox model for active loans as of February, 1 2010. **Recall that at the beginning of the report we made note that all appended time series data variables were matched with our data at approval date. Thus, for example, the crime rate variable in a given feature vector is the crime rate at the time the loan was approveed.** This date was arbitrarily selected, but is the date at which we will construct the 500 loan portfolio in the following section:   
 
 \begin{center}   
 \includegraphics[width=315pt,height=300pt]{../studies/p_1_roc_curve.pdf}
