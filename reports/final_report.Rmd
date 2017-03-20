@@ -210,7 +210,7 @@ Visualizing such time-varying patterns can yield insight into how various
 indices respond macroeconomic indicators of risk. The following plot includes 
 these indices, as well as the S&P 500 and Consumer Price Index (CPI) (see "Data Cleaning" section for data collection details). Further, the official
 period of the Great Recession (December 2007 - June 2009) is highlighted in grey. This plot acts as a sanity check for data quality because `VIX` and 
-`~VXO`, which both capture market volatility, spike during the recession. 
+`VXO`, which both capture market volatility, spike during the recession. 
 Further, the SP& 500 plummets, and the CPI spikes despite its gradual rise.
 Many other volatility market indices, which are labeled by their abbreviations,
 decline during the recession as well. Taken together, this plot validates 
