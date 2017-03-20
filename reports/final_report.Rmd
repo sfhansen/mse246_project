@@ -72,7 +72,7 @@ our exploratory analysis. When we fit survival models (*see Cox Proportional Haz
 Further, we collected additional predictor variables such as monthly 
 `GDP`, `Crime Rate`, and `Unemployment Rate` by State, as well as macroeconomic
 predictors such as monthly measures of the `S&P 500`, `Consumer Price Index`, 
-and 14 other volatility market indices.
+and 14 other volatility market indices. **It is important to note the way in which we appended these variables to our data. For a given loan, we included the GDP, crime rate, unemployment rate, etc, at the time the loan was approved. So when we speak of the crime rate (for example) for a given loan, we mean the crime rate at the time the loan approved. Thus, these quantities are known and fixed for a given loan at approval.**
 
 ##Default Rate vs. Business Type 
 
@@ -318,8 +318,8 @@ features.
 
 In addition to constructing features from the raw data, we also incorporated 
 data from external sources, including monthly State-based measures of 
-crime rate, GDP, and unemployment rate. We also joined in time-varying risk 
-factors, including monthly snapshots of the `S&P 500`, `Consumer Price Index`, 
+crime rate, GDP, and unemployment rate. We also joined in various risk 
+factors at the time of loan approval, including monthly snapshots of the `S&P 500`, `Consumer Price Index`, 
 and 14 other volatility market indices. 
 
 - BEN: Fill in where the data came from and any other important info 
@@ -834,7 +834,7 @@ For the purpose of feature selection, we fit a series of penalized Cox models to
 We used an elastic net penalty-- a penalty term that is a linear combination of the $l_1$ and $l_2$ penalties.
    $$\lambda [ (1-\alpha)||\beta||_2 + \alpha||\beta||_1]$$
    
-We fit models varying $\alpha$ and $\lambda$ in the above penalty. The best model was determined using a goodness of fit measure defined by the `glmnet` package in R called `dev.ratio`. It is a measure of the difference between the maximized likelihood of the null model and that of the fit model: 
+We fit models varying $\alpha$ and $\lambda$ in the above penalty. The best model was determined using a goodness of fit measure defined by the `glmnet` package in R called `dev.ratio`. It is a measure of the difference between the maximized likelihood of the null model (no covariates) and that of the fit model: 
 
 $$\text{dev.ratio} := 2(\hat{L}_\text{fit} - \hat{L}_\text{null})$$
 
@@ -842,17 +842,16 @@ $$\text{dev.ratio} := 2(\hat{L}_\text{fit} - \hat{L}_\text{null})$$
 \centering
 \begin{subfigure}{.5\textwidth}
   \centering
-  \includegraphics[width=350pt,height=620pt]{../studies/heatmap.pdf}
+  \includegraphics[width=325pt,height=620pt]{../studies/heatmap.pdf}
   \caption{`dev.ratio` values}
   \label{fig:sub1}
 \end{subfigure}%
 \begin{subfigure}{.5\textwidth}
   \centering
-  \includegraphics[width=350pt,height=620pt]{../studies/ftrs_heatmap.pdf}
+  \includegraphics[width=325pt,height=620pt]{../studies/ftrs_heatmap.pdf}
   \caption{Number of features with non-zero coefficients}
   \label{fig:sub2}
 \end{subfigure}
-\caption{A figure with two subfigures}
 \label{fig:test}
 \end{figure}
 
@@ -863,8 +862,8 @@ The best model, in terms had a value of $\lambda$ very close to 0, and $\alpha$ 
     
 ###One Year and Five Year Predictions of Default (out of sample)
 
-The below figures show the out of sample performance of the one and five year 
-probabilities estimated by the Cox model:   
+The below figures show the out of sample performance of the one and five year ahead
+probabilities estimated by the Cox model for active loans as of February, 1 2010. **Recall that at the beginning of the report we made note that all appended time series data variables were matched with our data at approval date. Thus, for example, the crime rate variable in a given feature vector is the crime rate at the time the loan was approveed.** This date was arbitrarily selected, but is the date at which we will construct the 500 loan portfolio in the following section:   
 
 \begin{center}   
 \includegraphics[width=315pt,height=300pt]{../studies/p_1_roc_curve.pdf}
