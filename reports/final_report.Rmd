@@ -320,9 +320,15 @@ In addition to constructing features from the raw data, we also incorporated
 data from external sources, including monthly State-based measures of 
 crime rate, GDP, and unemployment rate. We also joined in various risk 
 factors at the time of loan approval, including monthly snapshots of the `S&P 500`, `Consumer Price Index`, 
-and 14 other volatility market indices. 
+and 14 other volatility market indices. Below is a list of the macro-economic features that we incorporated 
+into our model, and their respective sources:
 
-- BEN: Fill in where the data came from and any other important info 
+- GDP by State: $\textit{Bureau of Economic Analysis}$ 
+- Crime Rate by State: $\textit{Uniform Crime Reporting Statistics}$
+- S&P 500 Returns: $\textit{Yahoo! Finance}$
+- Volatility Markets: $\textit{Yahoo! Finance}$
+- Unemployment Rate by State: $\textit{Bureau of Labor Statistics}$
+- Consumer Price Index by Month: $\textit{Bureau of Labor Statistics}$
 
 ###Data Splitting 
 
