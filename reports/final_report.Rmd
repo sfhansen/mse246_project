@@ -1461,7 +1461,7 @@ We see that during the financial crisis, the observed losses exceed the predicte
 - Thing 3
 
 ##Theo Vadpey
-Wrote `cox_processing.R`,``cox_models.R`,`cox_diagnostic_functions.R`,`cox_refit_best_model.R`,`cox_surv_probs.R`. Wrote section on Cox modeling. Generated 1yr, 5yr default probabilities on test data. 
+Wrote `cox_processing.R`,`cox_models.R`,`cox_diagnostic_functions.R`,`cox_refit_best_model.R`,`cox_surv_probs.R`. Wrote section on Cox modeling. Generated 1yr, 5yr default probabilities on test data. 
 
 ##Alex Elkrief
 
