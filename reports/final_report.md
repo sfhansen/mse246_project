@@ -1,6 +1,6 @@
 # MS&E 246 Final Report
-Samuel Hansen, Theo Vadpey, Alex Elkrief, Ben Etringer  
-2/23/2017  
+Samuel Hansen, Theo Vadpey, Alexandre Elkrief, Ben Etringer  
+3/23/2017  
 
 
 
@@ -21,20 +21,24 @@ the loss distributions of tranches backed by a portfolio of loans.
 Prior to model building, we explored the data to detect patterns that may 
 provide signal for models of loan default. Because we first aimed to build 
 binary response models of default probability, we excluded "Exempt" loans from 
-our exploratory analysis. When we fit survival models (*see Cox Proportional Hazards Models section*), "Exempt" loans are reintroduced into the population under consideration as right-censored observations. **All patterns observed in the data for this section cannot be assumed when "Exempt" observations are included.** Subsequently, we examined the relationship between default rates and the predictor variables, including `Business Type`, 
+our exploratory analysis. When we fit survival models (see *Cox proportional hazards models section*), "Exempt" loans were reintroduced into the population under consideration as right-censored observations. Thus, all patterns from
+exploratory data analysis apply to paid and  defaulted loans, not "Exempt" ones. Subsequently, we examined the relationship between default rates and the predictor variables, including `Business Type`, 
 `Loan Amount`, `NAICS Code`, and `Subprogram Type`, among others. 
 
 Further, we collected additional predictor variables such as monthly 
 `GDP`, `Crime Rate`, and `Unemployment Rate` by State, as well as macroeconomic
 predictors such as monthly measures of the `S&P 500`, `Consumer Price Index`, 
-and 14 other volatility market indices.
+and 14 other volatility market indices. 
+
+Importantly, time-indexed data were joined on each loan's approval date. 
+For example, when we discuss the crime rate associated with a given loan, we mean the crime rate at the time the loan was approved. Thus, these quantities are known and fixed for a given loan at its approval date (see *Feature Engineering* section for further details).
 
 ##Default Rate vs. Business Type 
 
 First, we examined the relationship between default rate and `Business Type`
 by loan approval year. As shown on the plot below, we observe an interaction
 effect between these three features, such that default rates spiked for 
-loans that were approved around the Great Recession (approximately 2006- 2009). 
+loans that were approved around the Great Recession (approximately 2007-2009). 
 Further, the different trajectories of the 3 curves implies the "Individual" 
 `Business Type` suffered greater default rates than corporations and 
 partnerships. Although corporations constitute a greater share of the data set,
@@ -98,15 +102,9 @@ these two factor levels into "Other."
 In addition to visualizing loan default risk for variables in the provided data,
 we also examined how volatility market indices fluctuated from 1990-2014.
 Visualizing such time-varying patterns can yield insight into how various 
-indices respond macroeconomic indicators of risk. The following plot includes 
-these indices, as well as the S&P 500 and Consumer Price Index (CPI) (see "Data Cleaning" section for data collection details). Further, the official
-period of the Great Recession (December 2007 - June 2009) is highlighted in grey. This plot acts as a sanity check for data quality because `VIX` and 
-`~VXO`, which both capture market volatility, spike during the recession. 
-Further, the SP& 500 plummets, and the CPI spikes despite its gradual rise.
-Many other volatility market indices, which are labeled by their abbreviations,
-decline during the recession as well. Taken together, this plot validates 
-our intuitions about how macroeconomic risk indicators responded to the Great 
-Recession. 
+indices behave as macroeconomic indicators of risk. The following plot includes 
+these indices, as well as the S&P 500 and Consumer Price Index (CPI) (see *Data Cleaning* section for data collection details). Further, the official
+period of the Great Recession (December 2007 - June 2009) is highlighted in grey. This plot acts as a sanity check for data quality; for instance, `VIX` and `VXO`, which both capture market volatility, spike during the recession. Further, the S&P 500 plummets, and the CPI spikes despite its gradual rise. Many other volatility market indices, which are labeled by their abbreviations, decline during the recession as well. Taken together, this plot validates our intuitions about how macroeconomic risk indicators responded to the Great Recession. 
 
 ![](final_report_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
 
@@ -119,7 +117,7 @@ unemployment rates during the recession. Interestingly, we observe
 different patterns in magnitudes and rates of increase across different States.
 This plot also acts as a sanity check by confirming various expectations,
 including Puerto Rico's (PR) consistently higher unemployment rate, and 
-Michigan's unemployment spike due largely to manufacturing layoffs during the 
+Michigan's unemployment spike largely due to manufacturing layoffs during the 
 recession. Such State-by-State variation may offer predictive power 
 for subsequent models. 
 
@@ -129,7 +127,7 @@ for subsequent models.
 
 Building upon our exploratory data analysis, we constructed two types of 
 predictive models of loan default probability: binary response models and 
-the Cox Proportional Hazards model. Here, we present our approach to fitting
+the Cox proportional hazards model. Here, we present our approach to fitting
 both model types, including data cleaning, feature engineering, 
 feature selection, hyper-parameter optimization, and evaluation. 
 
@@ -172,11 +170,17 @@ features.
 
 In addition to constructing features from the raw data, we also incorporated 
 data from external sources, including monthly State-based measures of 
-crime rate, GDP, and unemployment rate. We also joined in time-varying risk 
-factors, including monthly snapshots of the `S&P 500`, `Consumer Price Index`, 
-and 14 other volatility market indices. 
+crime rate, GDP, and unemployment rate. We also joined in various risk 
+factors at the time of loan approval, including monthly snapshots of the `S&P 500`, `Consumer Price Index`, 
+and 14 other volatility market indices. Below is a list of the macro-economic features that we incorporated 
+into our model, and their respective sources:
 
-- BEN: Fill in where the data came from and any other important info 
+- GDP by State: $\textit{Bureau of Economic Analysis}$ 
+- Crime Rate by State: $\textit{Uniform Crime Reporting Statistics}$
+- S&P 500 Returns: $\textit{Yahoo! Finance}$
+- Volatility Markets: $\textit{Yahoo! Finance}$
+- Unemployment Rate by State: $\textit{Bureau of Labor Statistics}$
+- Consumer Price Index by Month: $\textit{Bureau of Labor Statistics}$
 
 ###Data Splitting 
 
@@ -190,14 +194,9 @@ optimization using cross-validation on the training set.
 
 ###Data Preprocessing
 
-After engineering features and joining in external data sources, 
-we applied several preprocessing steps to our main data frame.
-First, we centered and scaled the continuous predictors to apply regularization 
-techniques during the modeling phase. Doing so adjusted for variables being
-on different scales; for example, `Gross Approval` varies in dollar amounts 
-from \$30,000  to \$4,000,000, whereas `Term in Months` ranges from 1 to 389. 
-Second, we applied a filter to remove features with near zero variance to 
-eliminate predictors that do not offer meaningful signal. 
+After splitting our data, we applied several preprocessing steps to our training data frame. First, we centered and scaled the continuous predictors to apply regularization  techniques during the modeling phase. Doing so adjusted for variables being on different scales; for example, `Gross Approval` varies in dollar amounts from \$30,000  to \$4,000,000, whereas `Term in Months` ranges from 1 to 389. Second, we applied a filter to remove features with near zero variance to eliminate predictors that do not offer meaningful signal. Lastly,
+we applied the same centering and scaling from the training data to the test
+data.
 
 
 
@@ -211,12 +210,11 @@ remove variables with low variable importance, as measured by mean increase
 in out-of-bag area-under-the-curve (AUC). In other words, variables that 
 do not contribute to significant improvements in AUC are eliminated. We
 performed a grid search over the number of potential features to determine 
-how many features to include. Note that factors were converted to separate dummy 
-variables using a one-hot encoder. 
+how many features to include. Note that factors were converted to separate dummy variables using a one-hot encoder. 
 
 
 
-The following plot shows that recursive feature selection 
+The following plot shows that recursive feature elimination 
 chose 122 
 variables because AUC is maximized (see plot below). In effect, all variables
 were kept because they offered predictive power regarding loan defaults. 
@@ -321,7 +319,7 @@ performs the worst.
 #####Distribution of Resampled Training AUC, Sensitivity, and Specificity 
 
 To examine the spread of **training** area under the ROC curve,
-sensitivity, and specificity across model types, we leverage the resampled
+sensitivity, and specificity across model types, we leveraged the resampled
 data generated during the cross-validation of model fitting to plot 
 their respective distributions. In the following plot, we observe that 
 the GBM classifier has the highest median AUC, sensitivity, and specificity,
@@ -351,7 +349,7 @@ elastic net penalty performs the worst.
 We evaluated our best models on a held-out test set representing 30% of the 
 original data. The ROC curves below reveal that the GBM model performed 
 the best on the test set, followed by the logistic regression model, and 
-finally, the random forest classifier. The weak performance of the random forest 
+lastly, the random forest classifier. The weak performance of the random forest 
 classifier is likely due to overfitting on the training set. Nevertheless, 
 all models achieve good performance over "random guessing" baselines. 
 
@@ -361,7 +359,7 @@ all models achieve good performance over "random guessing" baselines.
 
 #####Test Calibration Plots
 
-Lastly, we evaluated the calibration of the our models' predicted probabilities
+Lastly, we evaluated the calibration of our models' predicted probabilities
 of loan default against the observed fraction of defaults in the data. 
 A point on the dashed line means that the model's predicted probability
 of default matched the empirical default rate. Points to the right of the line 
@@ -392,11 +390,11 @@ performance on the test set in terms of AUC and calibration.
 
 
 	
-Survival analysis gives more detailed information about how the default risk of a loan varies over time. With binary classification, we estimated models to predict probability that a given loan *ever* defaults. With a hazard model, we are able to estimate the probability that a loan defaults between any two points of time in its life.
+Survival analysis provides more detailed information about how the default risk of a loan varies over time. With binary classification, we fit models to predict the probability that a given loan *ever* defaults. With a hazard model, we can estimate the probability that a loan defaults between any two points of time in its life.
 
 ###Model Choice
 
-There exist many specialized Cox models that assume a particular form of the baseline hazard function. The Cox Proportional Hazards Model does not have this requirement. We can see this in the following description of the partial maximum likelihood procedure used to estimate the parameters of the Cox PH model:
+There exist many specialized Cox models that assume a particular form of the baseline hazard function. The Cox proportional hazards (PH) model does not have this requirement. We can see this in the following description of the partial maximum likelihood procedure used to estimate the parameters of the Cox PH model:
 
 The form of the cox model is:
     $$h(t) = h_0(t)exp(\beta^T X)$$
@@ -416,17 +414,17 @@ $$ = \frac{h_j(t_j)}{\sum_{i = k_0}^{k_q} h_i(t_j)} = \frac{h_0(t_j) exp(\beta^T
 And we can see that the contribution of any observation to the likelihood function will not be dependent on $h_0(t)$. $\square$
 	      
 ###Modifications to the Data
-**It is important to note that from this part of the project moving forward, "Exempt" loans are included.** New 70-30 training and test sets were created which include these previously excluded observations. 
+**It is important to note that from this part of the project moving forward, "Exempt" loans are included.** 
 
-Additionally, roughly 95% of loans in the training data had term lengths of 20 years. We decided that considering loans with the same term was more appropriate for this analysis (84,949 loans).\footnote{One might imagine how fitting a model to predict default probabilities $t$ years ahead on data where most loans are of a certain term length, might give misleading output when predicting on a loan with a different term length. E.g., two loans of the same age, and identical feature vectors would have the same probability of default $t$ years ahead. But one of the loans might expire in fewer than $t$ years. Thus, the default probability estimated for the shorter term loan would have been over a smaller interval than intended (because a loan cannot default when it has expired).} 
+First, we created a new random data split with 70% training and 30% testing sets, which include these previously excluded observations. Second, roughly 95% of loans in the training data had term lengths of 20 years. We decided that considering loans with the same term was more appropriate for this analysis (84,949 loans).\footnote{One might imagine how fitting a model to predict default probabilities $t$ years ahead on data in which most loans are of a certain term length might give misleading output when predicting on a loan with a different term length. For example, two loans of the same age and identical feature vectors would have the same probability of default $t$ years ahead. But one of the loans might expire in fewer than $t$ years. Thus, the default probability estimated for the shorter term loan would have been over a smaller interval than intended (because a loan cannot default when it has expired).} 
 
 Within the training data, about 86\% of loans were right censored (term did not expire in window, and did not default), about 7\% of loans were paid off (term expired in window), and about 7% of loans defaulted within the window (see figure below). 
 		
 <img src="final_report_files/figure-html/distribution-1.png" style="display: block; margin: auto;" />
 
-Polynomial terms up to *degree five* were added for all numeric variables. Our intention was to include these features to capture non-linearities in these variables, and conduct feature selection during model fitting (through the addition of a penalty term).
+Polynomial terms up to *degree five* were added for all numeric variables. Our intention was to include these features to capture non-linearities in these variables and perform feature selection during model fitting (through the addition of a penalty term).
 
-All numeric variables were centered to 0, and scaled by standard deviation, as was the case for the binary models.
+All numeric variables were centered to 0 and scaled by standard deviation, as was the case for the binary models.
 	   
 Missing values were set to 0 and a missing value indicator feature was added for each original variable.	   
       
@@ -440,7 +438,7 @@ $$\hat{S(t)} = \prod_{t_i\leq t}\big[1 - \frac{d_i}{n_i}\big]$$
 
 Where $\{t_1,...,t_r\}$ are the death times of observations in the data, $\{d_1,...,d_r\}$ are the number of deaths that occur at those times, and $\{n_1,...,n_r\}$ are the number of observations remaining in the at-risk population just before those times.
 
-For expository purposes the following plots show the estimated survival function conditioned on select categorical variables such as a particular year, state, or status, as well as the general survival curve for our loan population. Note that the survival curve was significantly steeper for loans conditioned on these variables (a higher probability of default at all times).
+For expository purposes, the following plots show the estimated survival function conditioned on select categorical variables such as a particular year, state, or status, as well as the general survival curve for our loan population. Note that the survival curve was significantly steeper for loans conditioned on these variables (i.e. a higher probability of default at all times).
 	     
 \begin{center}
 \includegraphics[width=630pt]{../studies/surv_curvs.pdf}	
@@ -450,40 +448,40 @@ For expository purposes the following plots show the estimated survival function
 
 For the purpose of feature selection, we fit a series of penalized Cox models to the training data.
 
-We used an elastic net penalty-- a penalty term that is a linear combination of the $l_1$ and $l_2$ penalties.
+We used an elastic net penalty-- a penalty term that is a linear combination of the $l_1$ and $l_2$ penalties:
    $$\lambda [ (1-\alpha)||\beta||_2 + \alpha||\beta||_1]$$
    
-We fit models varying $\alpha$ and $\lambda$ in the above penalty. The best model was determined using a goodness of fit measure defined by the `glmnet` package in R called `dev.ratio`. It is a measure of the difference between the maximized likelihood of the null model and that of the fit model: 
-
-$$\text{dev.ratio} := 2(\hat{L}_\text{fit} - \hat{L}_\text{null})$$
+We fit models varying $\alpha$ and $\lambda$ in the above penalty. The best model was determined using a goodness of fit measure defined by the `glmnet` package in R called `dev.ratio`. It is a measure of the difference between the maximized likelihood of the null model (no covariates) and that of the fitted model: $$\text{dev.ratio} := 2(\hat{L}_\text{fit} - \hat{L}_\text{null})$$
 
 \begin{figure}
 \centering
 \begin{subfigure}{.5\textwidth}
   \centering
-  \includegraphics[width=350pt,height=620pt]{../studies/heatmap.pdf}
+  \includegraphics[width=200pt,height=200pt]{../studies/heatmap.pdf}
   \caption{`dev.ratio` values}
   \label{fig:sub1}
 \end{subfigure}%
 \begin{subfigure}{.5\textwidth}
   \centering
-  \includegraphics[width=350pt,height=620pt]{../studies/ftrs_heatmap.pdf}
+  \includegraphics[width=200pt,height=200pt]{../studies/ftrs_heatmap.pdf}
   \caption{Number of features with non-zero coefficients}
   \label{fig:sub2}
 \end{subfigure}
-\caption{A figure with two subfigures}
 \label{fig:test}
 \end{figure}
 
 \begin{center}      
 \end{center}
 	
-The best model, in terms had a value of $\lambda$ very close to 0, and $\alpha$ very close to 0 (the ridge penalty). Ninety-seven variables of the original 201 had non-zero coefficients.
+The heatmaps above depict how the `dev.ratio` and number of selected features change as functions of the values of $\alpha$ and $\lambda$. The best model, in terms had a value of $\lambda$ very close to 0, and $\alpha$ very close to 0 (the ridge penalty). Ninety-seven variables of the original 201 had non-zero coefficients.
     
 ###One Year and Five Year Predictions of Default (out of sample)
 
-The below figures show the out of sample performance of the one and five year 
-probabilities estimated by the Cox model:   
+**Recall that at the beginning of the report we noted that all appended time series variables were joined with our data by loan approval date. Thus, for example, the crime rate variable in a given feature vector is the crime rate at the time the loan was approved.** The figures below show the out of sample performance for the one- and five-year ahead
+probabilities estimated by the Cox model for active loans as of February, 1 2010. This date was arbitrarily selected, but is the date at which we will construct the 500 loan portfolio in the following section. The one- and five-year predictions achieve reasonable AUC near 76%, which is better than
+the "random-guessing" 50% baseline. The AUC associated with five-year 
+predictions is slightly lower because there is more uncertainty over 
+longer prediction intervals. 
 
 \begin{center}   
 \includegraphics[width=315pt,height=300pt]{../studies/p_1_roc_curve.pdf}
@@ -505,7 +503,7 @@ selected from the withheld test data set. These loans met the following criteria
     
 1. Loans that had not defaulted as of 02-01-2010.
 2. Loans that were approved before 02-01-2010.
-3. Loans less than 15 years old.
+3. Loans that were less than 15 years old.
 
 These conditions were to ensure that the 500 loans in question were active as 
 of the portfolio construction date, which we determined to be 02-01-2010. The 
@@ -582,7 +580,7 @@ metrics.
 
 
 The following plots show the total loss distribution in percentage of the
-total porftolio nominal for 100,000 portfolio simulations. Further, we get
+total portfolio nominal for 100,000 portfolio simulations. Further, we get
 an average loss of 0.7519071% for the 
 one year ahead period and 4.1222375% for
 five years.
@@ -593,83 +591,82 @@ five years.
 
 ##Computing Value-at-Risk
 
-Following the simulations, the table below shows the VaR results and the 95 and
-99% level with a 95% confidence interval for one and five years, respectively.
+Following the simulations, we generated the following table that shows the VaR results at the 95% and 99% levels with a 95% confidence interval for one and five years, respectively.
 
 
 
 
 
-![Value at Risk results](../studies/alex_var_table.png)
+![Value-at-Risk results.](../studies/alex_var_table.png)
 
 
 ##Computing Average Value-at-Risk
 
-Similarly to our Value at Risk estimation procedure, we computed the same 
-metrics for the Average Value at Risk, also called "Expected Tail loss." 
+Similarly to our Value-at-Risk estimation procedure, we computed the same 
+metrics for the Average Value-at-Risk, also called "expected tail loss" (ETL). 
 This metric represents the expected loss on the portfolio 
-in the worst 1% and 5% of scenarios respectively. We repeated this analysis
+in the worst 1% and 5% of scenarios, respectively. We repeated this analysis
 for 1-year and 5-year simulations.
 
 
 
-![Expected Tail loss results](../studies/alex_etl_table_png.png)
+![Expected Tail Loss results.](../studies/alex_etl_table_png.png)
 
 ##Analysis of Results
 
 The following two plots represent the 1 year and 5 year total loss distributions 
-from our boostrap. For each of plot, we also add a visualisation of the VaR and AVaR
-as well as a representation of the actual realised loss from our randomly sampled
-portfolio. We can observe that the realised loss for the 1 year distribution is relatively
-close to the mean (within 0.5 $\sigma$). On the other hand the 5 year realised losses
-are at the very tail of our estimated distribution. This is due to the fact that our model,
-while predicting the probability of default accurately seems to underestimate the loss at default.
+from our bootstrap procedure. For each plot, we also add a visualization of the VaR and AVaR
+as well as a representation of the actual realized loss from our randomly sampled
+portfolio. We can observe that the realized loss for the 1 year distribution is relatively
+close to the mean (within 0.5 $\sigma$). On the other hand, the 5 year realized losses
+are at the very tail of our estimated distribution. This is due to the fact that our model, though accurately predicting the probability of default, seems to underestimate the loss at default.
 
 ![](final_report_files/figure-html/unnamed-chunk-36-1.png)<!-- -->![](final_report_files/figure-html/unnamed-chunk-36-2.png)<!-- -->
 
 #Loss Distributions by Tranche
 
-In this section, we will estimate the distribution for the one and five year losses of an investor who has purchased a [5%, 15%] tranche backed by the 500 loan portfolio.  We will also investigate the loss distribution of the [15%, 100%] senior tranche for the given portfolio.  In addition, we will estimate the yearly distribution of observed losses for the one and five year tranches for the set of all 500 loan portfolios in a given year from 1990-2013.
+For the last part of our analysis, we estimated the distribution for the one- and five-year losses of an investor who has purchased a [5%, 15%] tranche backed by the 500 loan portfolio.  We also investigated the loss distribution of the [15%, 100%] senior tranche for the given portfolio.  In addition, we estimated the yearly distribution of observed losses for the one- and five-year tranches for the set of all 500 loan portfolios in a given year from 1990-2013.
 
-##Portfolio and assumptions
+##Portfolio and Assumptions
 
-In the first task, we use the 500 loan portfolio descibed in the previous section.  For the second task, we assume that all active loans whose term length does not expire within the 1- and/or 5-year window are eligible for the tranche.  We select from the dataframe of total loans, a subset of active loans that meet this requirement.  We neglect pre-payment of loans and ignore accrued interest when determining yearly cashflow.
+For the first task, we used the 500 loan portfolio described in the previous section.  For the second task, we assume that all active loans whose term length does not expire within the 1- and/or 5-year window are eligible for the tranche.  We select from the dataframe of total loans, a subset of active loans that meet this requirement.  We neglect pre-payment of loans and ignore accrued interest when determining yearly cashflow.
 
 
 
 ###Selection of loans for portfolio
 
-Once the dataframe of eligible loans for the portfolio has been created, we select 500 loans uniformly random from the list.  We store the 500 loans in a matrix in R.  
+After we created the dataframe of eligible loans for the portfolio, we selected 500 loans uniformly random from the list.  We stored the 500 loans in a matrix in R.  
 
 
 
 ###Determine value of the portfolio of loans 
 
-Once we have our loans selected for our portfolio, we determine the value of the portfolio, which is driven by the annual expected cashflow assuming zero defaults.  It may seem intuitive to simply add the value of each loan for the portfolio to determine the value of the tranche.  However, this method would not account for different term lengths.  For example, a loan for \$100,000 over 1-year would be more be more valuable in the 1-year tranche than a 5-year loan for \$200,000.  We account for this problem by normalizing the value of each loan by the term length.  That is,
+Given the loans selected for our portfolio, we determined the value of the portfolio, which is driven by the annual expected cashflow assuming zero defaults.  It may seem intuitive to simply add the value of each loan for the portfolio to determine the value of the tranche.  However, this method would not account for different term lengths.  For example, a loan for \$100,000 over 1 year would be more valuable in the 1-year tranche than a 5-year loan for \$200,000.  We accounted for this problem by normalizing the value of each loan by its term length. That is,
 
 $$ V_i = \frac{A_i}{\Delta_t}, $$
 
-where $V_i$ is the cashflow value of the $i-$th loan in the portfolio, and $\Delta_t$ is the portfolio duration (1- or 5-year in our case).  Note, this will ignore minor discrepancies between accrued interest.  In addition, we assume that loans either default or are paid in full at the loan termination date.  Note, this assumption ignores the possibility of a borrower paying the loan off before the loan due date.
+where $V_i$ is the cashflow value of the $i^{th}$ loan in the portfolio, and $\Delta_t$ is the portfolio duration (1- or 5-year in our case).  Note that this will ignore minor discrepancies between accrued interest.  In addition, we assume that loans either default or are paid in full at the loan termination date.  Note that this assumption ignores the possibility of a borrower paying the loan off before the loan due date.
 
 
 
 ###Determine the loss from the portfolio of loans
 
-In an identical manner to determining the value of the portfolio, we will determine the loss observed by the portfolio. Note, we must account for borrowers who made payments before defaulting.  Thus,
+In an identical manner to determining the value of the portfolio, we determined the loss observed by the portfolio. Note, we must account for borrowers who made payments before defaulting. Thus,
 
 $$ l_i = \frac{t_{\text{def},i}-t_0}{\Delta_t} V_i, $$
 
-where $L_i$ is the loss value given by the $i-$th defaulting loan in the portfolio, $t_{\text{def},i}$ is the year of default for the $i-$th loan, $t_0$ is the year of the initiation of the portfolio.  Then the percent loss is given by,
+where $L_i$ is the loss value given by the $i^{th}$ defaulting loan in the portfolio, $t_{\text{def},i}$ is the year of default for the $i^{th}$ loan, and $t_0$ is the year of the initiation of the portfolio.  Then the percent loss is given by,
 
 $$ L = \frac{\sum_i l_i}{\sum_i A_i} $$ 
 
 
 
-###Generate loss distribution and plotting
-In this subsection, we will generate distribution plots and interpret the results.
+###Generate loss distributions
+In this subsection, we present our procedure for generating loss
+distributions, creating associated plots, and interpreting results. 
 
 ####Predicted distribution of the 500-loan portfolio by tranches
-We use the vector of percent losses, where each element is the loss from a single iteration of the simulation.  We transform the absolute loss percentage into a loss percentage for the tranche.  This transform is given by
+We used the vector of percent losses, in which each element is the loss from a single iteration of the simulation.  We transformed the absolute loss percentage into a loss percentage for the tranche.  This transformation is given by,
 
 \begin{equation}
   f(x)=\begin{cases}
@@ -683,20 +680,65 @@ where $[a, b]$ are the bounds of the tranche, and $L$ is the absolute percent lo
 
 ####Observed yearly distributions of 500-loan portfolios by tranches
 
-We run this simulation of selected 500 loans uniformly random from the list of active loans 1000 times, and compute the appropriate losses for each tranche.  We then plot the approximated distribution using the Kernel Density Estimator (KDE) with bounded [0,1] support.
+We ran this simulation of selected 500 loans uniformly at random from the list of active loans 1000 times, and computed the appropriate losses for each tranche.  We then plotted the approximated distribution using the Kernel Density Estimator (KDE) with bounded [0,1] support (see figures below).
 
+\begin{figure}[h]
+\centering
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=300pt,height=150pt]{../scripts/Tranche/DefaultDist/full_1998_tranche.png}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=300pt,height=150pt]{../scripts/Tranche/DefaultDist/full_2003_tranche.png}
+\end{subfigure}
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=300pt,height=150pt]{../scripts/Tranche/DefaultDist/full_2008_tranche.png}
+\end{subfigure}
+\label{fig:test}
+\end{figure}
 
-![Tranche loss distribution for 1998](../scripts/Tranche/DefaultDist/full_1998_tranche.png)
-![Tranche loss distribution for 2003](../scripts/Tranche/DefaultDist/full_2003_tranche.png)
-![Tranche loss distribution for 2008](../scripts/Tranche/DefaultDist/full_2008_tranche.png)
-
+\begin{center}      
+\end{center}
 
 ##Interpretations and Comparison of Distributions
 
-See table below: 
+![Distribution statistics from tranche losses by year](../scripts/Tranche/DefaultDist/analysis_table.png) 
+As shown in the above table, as well as the approximated density plots of the observed losses seen by randomly generated portfolios, up until 2006, the [5%, 15%] tranche was equally risky as the [15%, 100%] tranche.  All of the randomly generated portfolios generated a 0% loss in the [5%, 15%] tranche through 2005.  The senior tranche obtained zero loss throughout the 1990-2013 time-frame.  However, from 2007-2010, the [5%, 15%] 5-year tranche receives significant loss (up to 100% in 2009-10). From a risk management point of view, an individual who is completely risk-averse would be willing to invest in the [5%, 15%] tranche prior to year 2007.  However, the risk-averse investor would have to switch to the senior tranche after 2007 in order to maintain the desired risk portfolio.  
 
-![Distribution statistics from tranche losses by year](../scripts/Tranche/DefaultDist/analysis_table.png)
+We see that during the financial crisis, the observed losses exceed the predicted losses from the model.  In the previous section, we determined that the 5-year VaR at the 95% confidence level was 5.75%, and 6.49% at the 99% level.  However, the portfolio actually observed a 6.10% loss in 5-years.  While this is within the tolerance for the 99% confidence interval, we can suspect that the financial crisis led to the increased observed losses compared to the predicted losses.
 
-We can see from the approximated density plots of the observed losses seen by randomly generated portfolios, and the above table, that up until 2006 the [5%, 15%] tranche was equally risky as the [15%, 100%] tranche.  All of the randomly generated portfolios generated a 0% loss in the [5%, 15%] tranche through 2005.  The senior tranche obtained zero loss throughout the 1990-2013 timeframe.  However, from 2007-2010, the [5%, 15%] 5-year tranche receives significant loss (up to 100% in 2009-10). From a risk management point of view, an individual who is completely risk-averse would be willing to invest in the [5%, 15%] tranche prior to year 2007.  However, the risk-averse investor would have to switch to the senior tranche after 2007 in order to maintain the desired risk portfolio.  
+#Contributions
 
-We see that during the financial crisis, the observed losses exceed the predicted losses from the model.  In the previous section, we determined that the 5Y VaR at the 95% confidence level was 5.75%, and 6.49% at the 99% level.  However, the portfolio actually observed a 6.10% loss in 5-years.  While this is within the tolerance for the 99% confidence interval, we can suspect that the financial crisis led to the increased observed losses compared to the predicted losses.
+##Samuel Hansen
+
+- Wrote `data_join.md` script, which performs data cleaning, joins together
+all external data sources, and creates train/test data partition. 
+
+- Wrote `data_summary.md` and `external_data_analysis.md`, which perform all 
+exploratory data analysis. 
+
+- Wrote `model_fitting.md`, which implements the pipeline of binary response models,
+including feature engineering, feature selection, model fitting (i.e. logistic regression
+random forest, and gradient boosting models), and in- and out-of-sample evaluations
+of ROC curves, sensitivity, and calibration. 
+
+- Contributed to `loss_at_default_model.Rmd`, including data cleaning, pre-processing,
+feature selection, fitting the random forest model, and adding starter code 
+for distribution plots. 
+
+##Theo Vadpey
+- Wrote `cox_processing.R`,`cox_models.R`,`cox_diagnostic_functions.R`,
+`cox_refit_best_model.R`, and `cox_surv_probs.R`. 
+
+- Wrote section on Cox modeling. Generated 1yr, 5yr default probabilities on test data. 
+
+##Alexandre Elkrief
+- Wrote the `loss_at_default_model.Rmd`, generating loss at default estimates and making the 1yr and 5yr value and risk and absolute value at risk simulations. 
+
+##Ben Etringer
+
+- Computed the tranche loss distributions and the risk analysis (code provided inline). 
+
+- Also researched and cleaned the external features that were used in the model (generating dummy indicator features as needed).

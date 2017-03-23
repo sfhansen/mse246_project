@@ -1,7 +1,7 @@
 ---
 title: "MS&E 246 Final Report"
-author: "Samuel Hansen, Theo Vadpey, Alex Elkrief, Ben Etringer"
-date: "2/23/2017"
+author: "Samuel Hansen, Theo Vadpey, Alexandre Elkrief, Ben Etringer"
+date: "3/23/2017"
 output:
   pdf_document:
     toc: yes
@@ -67,7 +67,7 @@ the loss distributions of tranches backed by a portfolio of loans.
 Prior to model building, we explored the data to detect patterns that may 
 provide signal for models of loan default. Because we first aimed to build 
 binary response models of default probability, we excluded "Exempt" loans from 
-our exploratory analysis. When we fit survival models (see *Cox proportional hazards Models section*), "Exempt" loans were reintroduced into the population under consideration as right-censored observations. Thus, all patterns from
+our exploratory analysis. When we fit survival models (see *Cox proportional hazards models section*), "Exempt" loans were reintroduced into the population under consideration as right-censored observations. Thus, all patterns from
 exploratory data analysis apply to paid and  defaulted loans, not "Exempt" ones. Subsequently, we examined the relationship between default rates and the predictor variables, including `Business Type`, 
 `Loan Amount`, `NAICS Code`, and `Subprogram Type`, among others. 
 
@@ -77,7 +77,7 @@ predictors such as monthly measures of the `S&P 500`, `Consumer Price Index`,
 and 14 other volatility market indices. 
 
 Importantly, time-indexed data were joined on each loan's approval date. 
-For example, when we discuss the crime rate associated with a given loan, we mean the crime rate at the time the loan approved. Thus, these quantities are known and fixed for a given loan at its approval date (see *Feature Engineering* section for further details).
+For example, when we discuss the crime rate associated with a given loan, we mean the crime rate at the time the loan was approved. Thus, these quantities are known and fixed for a given loan at its approval date (see *Feature Engineering* section for further details).
 
 ##Default Rate vs. Business Type 
 
@@ -122,7 +122,7 @@ sizes, as depicted by circle diameter. Overall, since loans of different sizes
 have different default rate patterns over time, we would also expect 
 the `Loan Amount` feature to offer predictive power. 
 
-```{r}
+```{r, fig.height=4}
 loan_labels <- c("(-10,1e+05]" = "< 100k",
                  "(1e+05,3e+05]" = "100k - 300k",
                  "(3e+05,5e+05]" = "300k - 500k",
@@ -166,7 +166,7 @@ consistently has one the lowest default rates. These patterns are consistent
 with intuition, and underscore the value of including the truncated NAICS code
 as a predictive feature of defaulting. 
 
-```{r}
+```{r, fig.height=4}
 eda_data %>%
   filter(NAICS != "00",
          NAICS != "99") %>%
@@ -1216,7 +1216,7 @@ portfolio. We can observe that the realized loss for the 1 year distribution is 
 close to the mean (within 0.5 $\sigma$). On the other hand, the 5 year realized losses
 are at the very tail of our estimated distribution. This is due to the fact that our model, though accurately predicting the probability of default, seems to underestimate the loss at default.
 
-```{r echo=FALSE}
+```{r echo=FALSE, fig.height=5}
 realised_loss_file = '../data/realised_losses.rds'
 realised_losses = read_rds(realised_loss_file)
 
@@ -1249,7 +1249,7 @@ ggplot(data = five_year_default_result, aes(five_year_default_result$Percentage)
 
 For the last part of our analysis, we estimated the distribution for the one- and five-year losses of an investor who has purchased a [5%, 15%] tranche backed by the 500 loan portfolio.  We also investigated the loss distribution of the [15%, 100%] senior tranche for the given portfolio.  In addition, we estimated the yearly distribution of observed losses for the one- and five-year tranches for the set of all 500 loan portfolios in a given year from 1990-2013.
 
-##Portfolio and assumptions
+##Portfolio and Assumptions
 
 For the first task, we used the 500 loan portfolio described in the previous section.  For the second task, we assume that all active loans whose term length does not expire within the 1- and/or 5-year window are eligible for the tranche.  We select from the dataframe of total loans, a subset of active loans that meet this requirement.  We neglect pre-payment of loans and ignore accrued interest when determining yearly cashflow.
 
@@ -1472,7 +1472,7 @@ all external data sources, and creates train/test data partition.
 exploratory data analysis. 
 
 - Wrote `model_fitting.md`, which implements the pipeline of binary response models,
-including feature engineering, feature selection, model fitting (i.e. logistic regression
+including feature engineering, feature selection, model fitting (i.e. logistic regression,
 random forest, and gradient boosting models), and in- and out-of-sample evaluations
 of ROC curves, sensitivity, and calibration. 
 
@@ -1486,7 +1486,7 @@ for distribution plots.
 
 - Wrote section on Cox modeling. Generated 1yr, 5yr default probabilities on test data. 
 
-##Alex Elkrief
+##Alexandre Elkrief
 - Wrote the `loss_at_default_model.Rmd`, generating loss at default estimates and making the 1yr and 5yr value and risk and absolute value at risk simulations. 
 
 ##Ben Etringer
