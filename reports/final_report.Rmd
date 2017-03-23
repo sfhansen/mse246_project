@@ -14,7 +14,8 @@ header-includes: \usepackage{subcaption}
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, 
-                      message = FALSE, cache = TRUE, eval = TRUE)
+                      message = FALSE, cache = TRUE, eval = TRUE,
+                      fig.height = 3)
 ```
 
 ```{r}
@@ -1092,7 +1093,7 @@ five_year_default_result = read_rds('../data/alex_five_year_default_result.rds')
 ```
 
 The following plots show the total loss distribution in percentage of the
-total porftolio nominal for 100,000 portfolio simulations. Further, we get
+total portfolio nominal for 100,000 portfolio simulations. Further, we get
 an average loss of `r mean(one_year_default_result$Percentage*100)`% for the 
 one year ahead period and `r mean(five_year_default_result$Percentage*100)`% for
 five years.
@@ -1209,10 +1210,10 @@ ETL_list <- list(ETL1yr, ETL5yr, etl1yr_95, etl1yr_99, etl5yr_95, etl5yr_99)
 ##Analysis of Results
 
 The following two plots represent the 1 year and 5 year total loss distributions 
-from our bootstrap procedure. For each plot, we also add a visualisation of the VaR and AVaR
-as well as a representation of the actual realised loss from our randomly sampled
-portfolio. We can observe that the realised loss for the 1 year distribution is relatively
-close to the mean (within 0.5 $\sigma$). On the other hand, the 5 year realised losses
+from our bootstrap procedure. For each plot, we also add a visualization of the VaR and AVaR
+as well as a representation of the actual realized loss from our randomly sampled
+portfolio. We can observe that the realized loss for the 1 year distribution is relatively
+close to the mean (within 0.5 $\sigma$). On the other hand, the 5 year realized losses
 are at the very tail of our estimated distribution. This is due to the fact that our model, though accurately predicting the probability of default, seems to underestimate the loss at default.
 
 ```{r echo=FALSE}
@@ -1293,7 +1294,7 @@ for (i in 1:54794){
 
 ###Selection of loans for portfolio
 
-Once the dataframe of eligible loans for the portfolio has been created, we select 500 loans uniformly random from the list.  We store the 500 loans in a matrix in R.  
+After we created the dataframe of eligible loans for the portfolio, we selected 500 loans uniformly random from the list.  We stored the 500 loans in a matrix in R.  
 
 ```{r eval=FALSE}
 # Pick 500 loans uniformly random from active loan list
@@ -1305,11 +1306,11 @@ sim5 = active5[sim5,]
 
 ###Determine value of the portfolio of loans 
 
-Once we have our loans selected for our portfolio, we determine the value of the portfolio, which is driven by the annual expected cashflow assuming zero defaults.  It may seem intuitive to simply add the value of each loan for the portfolio to determine the value of the tranche.  However, this method would not account for different term lengths.  For example, a loan for \$100,000 over 1-year would be more be more valuable in the 1-year tranche than a 5-year loan for \$200,000.  We account for this problem by normalizing the value of each loan by the term length.  That is,
+Given the loans selected for our portfolio, we determined the value of the portfolio, which is driven by the annual expected cashflow assuming zero defaults.  It may seem intuitive to simply add the value of each loan for the portfolio to determine the value of the tranche.  However, this method would not account for different term lengths.  For example, a loan for \$100,000 over 1 year would be more valuable in the 1-year tranche than a 5-year loan for \$200,000.  We accounted for this problem by normalizing the value of each loan by its term length. That is,
 
 $$ V_i = \frac{A_i}{\Delta_t}, $$
 
-where $V_i$ is the cashflow value of the $i-$th loan in the portfolio, and $\Delta_t$ is the portfolio duration (1- or 5-year in our case).  Note, this will ignore minor discrepancies between accrued interest.  In addition, we assume that loans either default or are paid in full at the loan termination date.  Note, this assumption ignores the possibility of a borrower paying the loan off before the loan due date.
+where $V_i$ is the cashflow value of the $i^{th}$ loan in the portfolio, and $\Delta_t$ is the portfolio duration (1- or 5-year in our case).  Note that this will ignore minor discrepancies between accrued interest.  In addition, we assume that loans either default or are paid in full at the loan termination date.  Note that this assumption ignores the possibility of a borrower paying the loan off before the loan due date.
 
 ```{r eval=FALSE}
 # Determine total value of portfolio
@@ -1319,11 +1320,11 @@ value5 = sum(sim5[,2]/(sim5[,4]-sim5[,1]))
 
 ###Determine the loss from the portfolio of loans
 
-In an identical manner to determining the value of the portfolio, we will determine the loss observed by the portfolio. Note, we must account for borrowers who made payments before defaulting.  Thus,
+In an identical manner to determining the value of the portfolio, we determined the loss observed by the portfolio. Note, we must account for borrowers who made payments before defaulting. Thus,
 
 $$ l_i = \frac{t_{\text{def},i}-t_0}{\Delta_t} V_i, $$
 
-where $L_i$ is the loss value given by the $i-$th defaulting loan in the portfolio, $t_{\text{def},i}$ is the year of default for the $i-$th loan, $t_0$ is the year of the initiation of the portfolio.  Then the percent loss is given by,
+where $L_i$ is the loss value given by the $i^{th}$ defaulting loan in the portfolio, $t_{\text{def},i}$ is the year of default for the $i^{th}$ loan, and $t_0$ is the year of the initiation of the portfolio.  Then the percent loss is given by,
 
 $$ L = \frac{\sum_i l_i}{\sum_i A_i} $$ 
 
@@ -1349,11 +1350,12 @@ loss_percent1 = c(loss_percent1, loss1/value1);
 loss_percent5 = c(loss_percent5, loss5/value5);
 ```
 
-###Generate loss distribution and plotting
-In this subsection, we will generate distribution plots and interpret the results.
+###Generate loss distributions
+In this subsection, we present our procedure for generating loss
+distributions, creating associated plots, and interpreting results. 
 
 ####Predicted distribution of the 500-loan portfolio by tranches
-We use the vector of percent losses, where each element is the loss from a single iteration of the simulation.  We transform the absolute loss percentage into a loss percentage for the tranche.  This transform is given by
+We used the vector of percent losses, in which each element is the loss from a single iteration of the simulation.  We transformed the absolute loss percentage into a loss percentage for the tranche.  This transformation is given by,
 
 \begin{equation}
   f(x)=\begin{cases}
@@ -1367,8 +1369,7 @@ where $[a, b]$ are the bounds of the tranche, and $L$ is the absolute percent lo
 
 ####Observed yearly distributions of 500-loan portfolios by tranches
 
-We run this simulation of selected 500 loans uniformly random from the list of active loans 1000 times, and compute the appropriate losses for each tranche.  We then plot the approximated distribution using the Kernel Density Estimator (KDE) with bounded [0,1] support.
-
+We ran this simulation of selected 500 loans uniformly at random from the list of active loans 1000 times, and computed the appropriate losses for each tranche.  We then plotted the approximated distribution using the Kernel Density Estimator (KDE) with bounded [0,1] support (see figures below).
 ```{r eval=FALSE}
 # Initialize Vector of Tranche Losses
 tranche1_5_15 = rep(0, length(loss_percent1))
@@ -1433,34 +1434,63 @@ lines(density(tranche5_15_100, bw = .0075, from = 0, to = 1), col = 'orange')
 legend('top', c('1-yr Tranche [5,15]', '5-yr Tranche [5,15]', '1-yr Tranche [15,100]', '5-yr Tranche [15,100]'), col = c('blue', 'red', 'green', 'orange'), lwd = 2)
 #dev.off()
 ```
-![Tranche loss distribution for 1998](../scripts/Tranche/DefaultDist/full_1998_tranche.png)
-![Tranche loss distribution for 2003](../scripts/Tranche/DefaultDist/full_2003_tranche.png)
-![Tranche loss distribution for 2008](../scripts/Tranche/DefaultDist/full_2008_tranche.png)
+\begin{figure}[h]
+\centering
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=300pt,height=150pt]{../scripts/Tranche/DefaultDist/full_1998_tranche.png}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=300pt,height=150pt]{../scripts/Tranche/DefaultDist/full_2003_tranche.png}
+\end{subfigure}
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=300pt,height=150pt]{../scripts/Tranche/DefaultDist/full_2008_tranche.png}
+\end{subfigure}
+\label{fig:test}
+\end{figure}
 
+\begin{center}      
+\end{center}
 
 ##Interpretations and Comparison of Distributions
 
-See table below: 
+![Distribution statistics from tranche losses by year](../scripts/Tranche/DefaultDist/analysis_table.png) 
+As shown in the above table, as well as the approximated density plots of the observed losses seen by randomly generated portfolios, up until 2006, the [5%, 15%] tranche was equally risky as the [15%, 100%] tranche.  All of the randomly generated portfolios generated a 0% loss in the [5%, 15%] tranche through 2005.  The senior tranche obtained zero loss throughout the 1990-2013 time-frame.  However, from 2007-2010, the [5%, 15%] 5-year tranche receives significant loss (up to 100% in 2009-10). From a risk management point of view, an individual who is completely risk-averse would be willing to invest in the [5%, 15%] tranche prior to year 2007.  However, the risk-averse investor would have to switch to the senior tranche after 2007 in order to maintain the desired risk portfolio.  
 
-![Distribution statistics from tranche losses by year](../scripts/Tranche/DefaultDist/analysis_table.png)
-
-We can see from the approximated density plots of the observed losses seen by randomly generated portfolios, and the above table, that up until 2006 the [5%, 15%] tranche was equally risky as the [15%, 100%] tranche.  All of the randomly generated portfolios generated a 0% loss in the [5%, 15%] tranche through 2005.  The senior tranche obtained zero loss throughout the 1990-2013 timeframe.  However, from 2007-2010, the [5%, 15%] 5-year tranche receives significant loss (up to 100% in 2009-10). From a risk management point of view, an individual who is completely risk-averse would be willing to invest in the [5%, 15%] tranche prior to year 2007.  However, the risk-averse investor would have to switch to the senior tranche after 2007 in order to maintain the desired risk portfolio.  
-
-We see that during the financial crisis, the observed losses exceed the predicted losses from the model.  In the previous section, we determined that the 5Y VaR at the 95% confidence level was 5.75%, and 6.49% at the 99% level.  However, the portfolio actually observed a 6.10% loss in 5-years.  While this is within the tolerance for the 99% confidence interval, we can suspect that the financial crisis led to the increased observed losses compared to the predicted losses.
+We see that during the financial crisis, the observed losses exceed the predicted losses from the model.  In the previous section, we determined that the 5-year VaR at the 95% confidence level was 5.75%, and 6.49% at the 99% level.  However, the portfolio actually observed a 6.10% loss in 5-years.  While this is within the tolerance for the 99% confidence interval, we can suspect that the financial crisis led to the increased observed losses compared to the predicted losses.
 
 #Contributions
 
 ##Samuel Hansen
 
-- Thing 1
-- Thing 2
-- Thing 3
+- Wrote `data_join.md` script, which performs data cleaning, joins together
+all external data sources, and creates train/test data partition. 
+
+- Wrote `data_summary.md` and `external_data_analysis.md`, which perform all 
+exploratory data analysis. 
+
+- Wrote `model_fitting.md`, which implements the pipeline of binary response models,
+including feature engineering, feature selection, model fitting (i.e. logistic regression
+random forest, and gradient boosting models), and in- and out-of-sample evaluations
+of ROC curves, sensitivity, and calibration. 
+
+- Contributed to `loss_at_default_model.Rmd`, including data cleaning, pre-processing,
+feature selection, fitting the random forest model, and adding starter code 
+for distribution plots. 
 
 ##Theo Vadpey
-Wrote `cox_processing.R`,`cox_models.R`,`cox_diagnostic_functions.R`,`cox_refit_best_model.R`,`cox_surv_probs.R`. Wrote section on Cox modeling. Generated 1yr, 5yr default probabilities on test data. 
+- Wrote `cox_processing.R`,`cox_models.R`,`cox_diagnostic_functions.R`,
+`cox_refit_best_model.R`, and `cox_surv_probs.R`. 
+
+- Wrote section on Cox modeling. Generated 1yr, 5yr default probabilities on test data. 
 
 ##Alex Elkrief
-Wrote the `loss_at_default_model.Rmd`, generating loss at default estimates and making the 1yr and 5yr value and risk and absolute value at risk simulations. 
+- Wrote the `loss_at_default_model.Rmd`, generating loss at default estimates and making the 1yr and 5yr value and risk and absolute value at risk simulations. 
 
 ##Ben Etringer
-Computed the tranche loss distributions and the risk analysis (code provided inline). Also researched and cleaned the external features that were used in the model (generating dummy indicator features as needed).
+
+- Computed the tranche loss distributions and the risk analysis (code provided inline). 
+
+- Also researched and cleaned the external features that were used in the model (generating dummy indicator features as needed).
