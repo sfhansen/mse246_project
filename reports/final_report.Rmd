@@ -1464,5 +1464,7 @@ We see that during the financial crisis, the observed losses exceed the predicte
 Wrote `cox_processing.R`,`cox_models.R`,`cox_diagnostic_functions.R`,`cox_refit_best_model.R`,`cox_surv_probs.R`. Wrote section on Cox modeling. Generated 1yr, 5yr default probabilities on test data. 
 
 ##Alex Elkrief
+Wrote the `loss_at_default_model.Rmd`, generating loss at default estimates and making the 1yr and 5yr value and risk and absolute value at risk simulations. 
+
 
 ##Ben Etringer
