@@ -3,11 +3,11 @@ title: "MS&E 246 Final Report"
 author: "Samuel Hansen, Theo Vadpey, Alexandre Elkrief, Ben Etringer"
 date: "3/23/2017"
 output:
-  pdf_document:
-    toc: yes
   html_document:
     keep_md: yes
     number_sections: yes
+    toc: yes
+  pdf_document:
     toc: yes
 header-includes: \usepackage{subcaption}
 ---
@@ -1479,6 +1479,9 @@ of ROC curves, sensitivity, and calibration.
 - Contributed to `loss_at_default_model.Rmd`, including data cleaning, pre-processing,
 feature selection, fitting the random forest model, and adding starter code 
 for distribution plots. 
+
+- Wrote sections including executive summary, exploratory data analysis, binary
+response models, and constructing the loss at default model. 
 
 ##Theo Vadpey
 - Wrote `cox_processing.R`,`cox_models.R`,`cox_diagnostic_functions.R`,

@@ -720,13 +720,16 @@ all external data sources, and creates train/test data partition.
 exploratory data analysis. 
 
 - Wrote `model_fitting.md`, which implements the pipeline of binary response models,
-including feature engineering, feature selection, model fitting (i.e. logistic regression
+including feature engineering, feature selection, model fitting (i.e. logistic regression,
 random forest, and gradient boosting models), and in- and out-of-sample evaluations
 of ROC curves, sensitivity, and calibration. 
 
 - Contributed to `loss_at_default_model.Rmd`, including data cleaning, pre-processing,
 feature selection, fitting the random forest model, and adding starter code 
 for distribution plots. 
+
+- Wrote sections including executive summary, exploratory data analysis, binary
+response models, and constructing the loss at default model. 
 
 ##Theo Vadpey
 - Wrote `cox_processing.R`,`cox_models.R`,`cox_diagnostic_functions.R`,
