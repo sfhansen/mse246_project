@@ -66,20 +66,24 @@ the loss distributions of tranches backed by a portfolio of loans.
 Prior to model building, we explored the data to detect patterns that may 
 provide signal for models of loan default. Because we first aimed to build 
 binary response models of default probability, we excluded "Exempt" loans from 
-our exploratory analysis. When we fit survival models (*see Cox Proportional Hazards Models section*), "Exempt" loans are reintroduced into the population under consideration as right-censored observations. **All patterns observed in the data for this section cannot be assumed when "Exempt" observations are included.** Subsequently, we examined the relationship between default rates and the predictor variables, including `Business Type`, 
+our exploratory analysis. When we fit survival models (see *Cox proportional hazards Models section*), "Exempt" loans were reintroduced into the population under consideration as right-censored observations. Thus, all patterns from
+exploratory data analysis apply to paid and  defaulted loans, not "Exempt" ones. Subsequently, we examined the relationship between default rates and the predictor variables, including `Business Type`, 
 `Loan Amount`, `NAICS Code`, and `Subprogram Type`, among others. 
 
 Further, we collected additional predictor variables such as monthly 
 `GDP`, `Crime Rate`, and `Unemployment Rate` by State, as well as macroeconomic
 predictors such as monthly measures of the `S&P 500`, `Consumer Price Index`, 
-and 14 other volatility market indices. **It is important to note the way in which we appended these variables to our data. For a given loan, we included the GDP, crime rate, unemployment rate, etc, at the time the loan was approved. So when we speak of the crime rate (for example) for a given loan, we mean the crime rate at the time the loan approved. Thus, these quantities are known and fixed for a given loan at approval.**
+and 14 other volatility market indices. 
+
+Importantly, time-indexed data were joined on each loan's approval date. 
+For example, when we discuss the crime rate associated with a given loan, we mean the crime rate at the time the loan approved. Thus, these quantities are known and fixed for a given loan at its approval date (see *Feature Engineering* section for further details).
 
 ##Default Rate vs. Business Type 
 
 First, we examined the relationship between default rate and `Business Type`
 by loan approval year. As shown on the plot below, we observe an interaction
 effect between these three features, such that default rates spiked for 
-loans that were approved around the Great Recession (approximately 2006- 2009). 
+loans that were approved around the Great Recession (approximately 2007-2009). 
 Further, the different trajectories of the 3 curves implies the "Individual" 
 `Business Type` suffered greater default rates than corporations and 
 partnerships. Although corporations constitute a greater share of the data set,
@@ -207,15 +211,9 @@ eda_data %>%
 In addition to visualizing loan default risk for variables in the provided data,
 we also examined how volatility market indices fluctuated from 1990-2014.
 Visualizing such time-varying patterns can yield insight into how various 
-indices respond macroeconomic indicators of risk. The following plot includes 
-these indices, as well as the S&P 500 and Consumer Price Index (CPI) (see "Data Cleaning" section for data collection details). Further, the official
-period of the Great Recession (December 2007 - June 2009) is highlighted in grey. This plot acts as a sanity check for data quality because `VIX` and 
-`VXO`, which both capture market volatility, spike during the recession. 
-Further, the SP& 500 plummets, and the CPI spikes despite its gradual rise.
-Many other volatility market indices, which are labeled by their abbreviations,
-decline during the recession as well. Taken together, this plot validates 
-our intuitions about how macroeconomic risk indicators responded to the Great 
-Recession. 
+indices behave as macroeconomic indicators of risk. The following plot includes 
+these indices, as well as the S&P 500 and Consumer Price Index (CPI) (see *Data Cleaning* section for data collection details). Further, the official
+period of the Great Recession (December 2007 - June 2009) is highlighted in grey. This plot acts as a sanity check for data quality; for instance, `VIX` and `VXO`, which both capture market volatility, spike during the recession. Further, the S&P 500 plummets, and the CPI spikes despite its gradual rise. Many other volatility market indices, which are labeled by their abbreviations, decline during the recession as well. Taken together, this plot validates our intuitions about how macroeconomic risk indicators responded to the Great Recession. 
 
 ```{r, fig.width=10, fig.height=10}
 full_data %>%
@@ -249,7 +247,7 @@ unemployment rates during the recession. Interestingly, we observe
 different patterns in magnitudes and rates of increase across different States.
 This plot also acts as a sanity check by confirming various expectations,
 including Puerto Rico's (PR) consistently higher unemployment rate, and 
-Michigan's unemployment spike due largely to manufacturing layoffs during the 
+Michigan's unemployment spike largely due to manufacturing layoffs during the 
 recession. Such State-by-State variation may offer predictive power 
 for subsequent models. 
 
@@ -275,7 +273,7 @@ full_data %>%
 
 Building upon our exploratory data analysis, we constructed two types of 
 predictive models of loan default probability: binary response models and 
-the Cox Proportional Hazards model. Here, we present our approach to fitting
+the Cox proportional hazards model. Here, we present our approach to fitting
 both model types, including data cleaning, feature engineering, 
 feature selection, hyper-parameter optimization, and evaluation. 
 
@@ -342,14 +340,9 @@ optimization using cross-validation on the training set.
 
 ###Data Preprocessing
 
-After engineering features and joining in external data sources, 
-we applied several preprocessing steps to our main data frame.
-First, we centered and scaled the continuous predictors to apply regularization 
-techniques during the modeling phase. Doing so adjusted for variables being
-on different scales; for example, `Gross Approval` varies in dollar amounts 
-from \$30,000  to \$4,000,000, whereas `Term in Months` ranges from 1 to 389. 
-Second, we applied a filter to remove features with near zero variance to 
-eliminate predictors that do not offer meaningful signal. 
+After splitting our data, we applied several preprocessing steps to our training data frame. First, we centered and scaled the continuous predictors to apply regularization  techniques during the modeling phase. Doing so adjusted for variables being on different scales; for example, `Gross Approval` varies in dollar amounts from \$30,000  to \$4,000,000, whereas `Term in Months` ranges from 1 to 389. Second, we applied a filter to remove features with near zero variance to eliminate predictors that do not offer meaningful signal. Lastly,
+we applied the same centering and scaling from the training data to the test
+data.
 
 ```{r}
 # Define unnecessary videos 
@@ -379,14 +372,13 @@ remove variables with low variable importance, as measured by mean increase
 in out-of-bag area-under-the-curve (AUC). In other words, variables that 
 do not contribute to significant improvements in AUC are eliminated. We
 performed a grid search over the number of potential features to determine 
-how many features to include. Note that factors were converted to separate dummy 
-variables using a one-hot encoder. 
+how many features to include. Note that factors were converted to separate dummy variables using a one-hot encoder. 
 
 ```{r, echo = FALSE}
 rfe.results <- read_rds("../models/rfe.results.rds")
 ```
 
-The following plot shows that recursive feature selection 
+The following plot shows that recursive feature elimination 
 chose `r rfe.results[["results"]]$Variables[which.max(rfe.results[["results"]]$ROC)]` 
 variables because AUC is maximized (see plot below). In effect, all variables
 were kept because they offered predictive power regarding loan defaults. 
@@ -561,14 +553,14 @@ bind_rows(getTrainPerf(elastic.fit),
   ggplot(mapping = aes(x = TrainSens, y = TrainROC, label = method)) +
   geom_point() +
   geom_text_repel() +
-  labs(x = "Train Sensitivity", y = "Training AUC", 
+  labs(x = "Training Sensitivity", y = "Training AUC", 
        title = "Training Sensitivity vs. AUC by Model Type")
 ```
 
 #####Distribution of Resampled Training AUC, Sensitivity, and Specificity 
 
 To examine the spread of **training** area under the ROC curve,
-sensitivity, and specificity across model types, we leverage the resampled
+sensitivity, and specificity across model types, we leveraged the resampled
 data generated during the cross-validation of model fitting to plot 
 their respective distributions. In the following plot, we observe that 
 the GBM classifier has the highest median AUC, sensitivity, and specificity,
@@ -642,7 +634,7 @@ trainResults %>%
   annotate(geom = "segment", x = 0, xend = 1, y = 0, yend = 1,
            color = "black", linetype = 2) +
   labs(x = "False Positive Fraction", y = "True Positive Fraction",
-       title = "ROC Curves by Model Type") +
+       title = "Training ROC Curves by Model Type") +
   facet_wrap(~method, labeller = labeller(method = model_labels)) +
   geom_text(data = aucs, aes(x = 0.75, y = 0.5, label = auc_label), 
                     colour = "black", inherit.aes = FALSE, parse = FALSE)
@@ -655,7 +647,7 @@ trainResults %>%
 We evaluated our best models on a held-out test set representing 30% of the 
 original data. The ROC curves below reveal that the GBM model performed 
 the best on the test set, followed by the logistic regression model, and 
-finally, the random forest classifier. The weak performance of the random forest 
+lastly, the random forest classifier. The weak performance of the random forest 
 classifier is likely due to overfitting on the training set. Nevertheless, 
 all models achieve good performance over "random guessing" baselines. 
 
@@ -703,7 +695,7 @@ testResults %>%
 
 #####Test Calibration Plots
 
-Lastly, we evaluated the calibration of the our models' predicted probabilities
+Lastly, we evaluated the calibration of our models' predicted probabilities
 of loan default against the observed fraction of defaults in the data. 
 A point on the dashed line means that the model's predicted probability
 of default matched the empirical default rate. Points to the right of the line 
@@ -758,18 +750,18 @@ over a larger search space.
 Moreover, the gradient boosting machine classifier demonstrated the best
 performance on the test set in terms of AUC and calibration.  
 
-##Cox Proportional Hazards Model 
+##Cox proportional hazards Model 
 
 ```{r load env, echo=F,results='hide',message=F}
 load('../data/cox_data_environment_train.RData')
 source('../scripts/cox_diagnostic_functions.R')
 ```
 	
-Survival analysis gives more detailed information about how the default risk of a loan varies over time. With binary classification, we estimated models to predict probability that a given loan *ever* defaults. With a hazard model, we are able to estimate the probability that a loan defaults between any two points of time in its life.
+Survival analysis provides more detailed information about how the default risk of a loan varies over time. With binary classification, we fit models to predict the probability that a given loan *ever* defaults. With a hazard model, we can estimate the probability that a loan defaults between any two points of time in its life.
 
 ###Model Choice
 
-There exist many specialized Cox models that assume a particular form of the baseline hazard function. The Cox Proportional Hazards Model does not have this requirement. We can see this in the following description of the partial maximum likelihood procedure used to estimate the parameters of the Cox PH model:
+There exist many specialized Cox models that assume a particular form of the baseline hazard function. The Cox proportional hazards (PH) model does not have this requirement. We can see this in the following description of the partial maximum likelihood procedure used to estimate the parameters of the Cox PH model:
 
 The form of the cox model is:
     $$h(t) = h_0(t)exp(\beta^T X)$$
@@ -789,9 +781,9 @@ $$ = \frac{h_j(t_j)}{\sum_{i = k_0}^{k_q} h_i(t_j)} = \frac{h_0(t_j) exp(\beta^T
 And we can see that the contribution of any observation to the likelihood function will not be dependent on $h_0(t)$. $\square$
 	      
 ###Modifications to the Data
-**It is important to note that from this part of the project moving forward, "Exempt" loans are included.** New 70-30 training and test sets were created which include these previously excluded observations. 
+**It is important to note that from this part of the project moving forward, "Exempt" loans are included.** 
 
-Additionally, roughly 95% of loans in the training data had term lengths of 20 years. We decided that considering loans with the same term was more appropriate for this analysis (84,949 loans).\footnote{One might imagine how fitting a model to predict default probabilities $t$ years ahead on data where most loans are of a certain term length, might give misleading output when predicting on a loan with a different term length. E.g., two loans of the same age, and identical feature vectors would have the same probability of default $t$ years ahead. But one of the loans might expire in fewer than $t$ years. Thus, the default probability estimated for the shorter term loan would have been over a smaller interval than intended (because a loan cannot default when it has expired).} 
+First, we created a new random data split with 70% training and 30% testing sets, which include these previously excluded observations. Second, roughly 95% of loans in the training data had term lengths of 20 years. We decided that considering loans with the same term was more appropriate for this analysis (84,949 loans).\footnote{One might imagine how fitting a model to predict default probabilities $t$ years ahead on data in which most loans are of a certain term length might give misleading output when predicting on a loan with a different term length. For example, two loans of the same age and identical feature vectors would have the same probability of default $t$ years ahead. But one of the loans might expire in fewer than $t$ years. Thus, the default probability estimated for the shorter term loan would have been over a smaller interval than intended (because a loan cannot default when it has expired).} 
 
 Within the training data, about 86\% of loans were right censored (term did not expire in window, and did not default), about 7\% of loans were paid off (term expired in window), and about 7% of loans defaulted within the window (see figure below). 
 		
@@ -811,9 +803,9 @@ descrip_status %>%
        title = "Loans in Training Data by Status")
 ```	
 
-Polynomial terms up to *degree five* were added for all numeric variables. Our intention was to include these features to capture non-linearities in these variables, and conduct feature selection during model fitting (through the addition of a penalty term).
+Polynomial terms up to *degree five* were added for all numeric variables. Our intention was to include these features to capture non-linearities in these variables and perform feature selection during model fitting (through the addition of a penalty term).
 
-All numeric variables were centered to 0, and scaled by standard deviation, as was the case for the binary models.
+All numeric variables were centered to 0 and scaled by standard deviation, as was the case for the binary models.
 	   
 Missing values were set to 0 and a missing value indicator feature was added for each original variable.	   
       
@@ -827,13 +819,13 @@ $$\hat{S(t)} = \prod_{t_i\leq t}\big[1 - \frac{d_i}{n_i}\big]$$
 
 Where $\{t_1,...,t_r\}$ are the death times of observations in the data, $\{d_1,...,d_r\}$ are the number of deaths that occur at those times, and $\{n_1,...,n_r\}$ are the number of observations remaining in the at-risk population just before those times.
 
-For expository purposes the following plots show the estimated survival function conditioned on select categorical variables such as a particular year, state, or status, as well as the general survival curve for our loan population. Note that the survival curve was significantly steeper for loans conditioned on these variables (a higher probability of default at all times).
+For expository purposes, the following plots show the estimated survival function conditioned on select categorical variables such as a particular year, state, or status, as well as the general survival curve for our loan population. Note that the survival curve was significantly steeper for loans conditioned on these variables (a higher probability of default at all times).
 	     
 \begin{center}
 \includegraphics[width=630pt]{../studies/surv_curvs.pdf}	
 \end{center}	
 		
-###Penalized Cox Proportional Hazards Model
+###Penalized Cox proportional hazards Model
 
 For the purpose of feature selection, we fit a series of penalized Cox models to the training data.
 
