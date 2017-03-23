@@ -1468,3 +1468,4 @@ Wrote the `loss_at_default_model.Rmd`, generating loss at default estimates and 
 
 
 ##Ben Etringer
+Computed the tranche loss distributions and the risk analysis (code provided inline). Also researched and cleaned the external features that were used in the model (generating dummy indicator features as needed).
