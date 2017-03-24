@@ -6,7 +6,7 @@ Samuel Hansen, Theo Vadpey, Alexandre Elkrief, Ben Etringer
 
 
 
-#Exectutive Summary
+#Executive Summary
 
 In *MS&E 246: Financial Risk Analytics*, our team analyzed a data set of 
 roughly 150,000 loans backed by the US Small Business Administration 
@@ -21,7 +21,7 @@ the loss distributions of tranches backed by a portfolio of loans.
 Prior to model building, we explored the data to detect patterns that may 
 provide signal for models of loan default. Because we first aimed to build 
 binary response models of default probability, we excluded "Exempt" loans from 
-our exploratory analysis. When we fit survival models (see *Cox proportional hazards models section*), "Exempt" loans were reintroduced into the population under consideration as right-censored observations. Thus, all patterns from
+our exploratory analysis. When we fit survival models (see *Cox proportional hazards models* section), "Exempt" loans were reintroduced into the population under consideration as right-censored observations. Thus, all patterns from
 exploratory data analysis apply to paid and  defaulted loans, not "Exempt" ones. Subsequently, we examined the relationship between default rates and the predictor variables, including `Business Type`, 
 `Loan Amount`, `NAICS Code`, and `Subprogram Type`, among others. 
 
@@ -299,10 +299,10 @@ improvements to cross-validated AUC across boosting iterations.
 
 ###Model Evaluation 
 
-After we optimized the hyper-parameters of our models, we evaluated the models  
-using in-sample and out-of-sample metrics, including AUC, sensitivity,
-ROC curves, and calibration. To do so, we used these "best" models to 
-predict loan defaults in the training and test sets. 
+After we optimized the hyper-parameters of our models, we evaluated the models 
+using in-sample and out-of-sample metrics, including AUC, sensitivity, 
+ROC curves, and calibration. To do so, we used these "best" models to predict 
+loan defaults in the training and test sets. 
 
 ####In-Sample Evaluation 
 
@@ -473,7 +473,7 @@ We fit models varying $\alpha$ and $\lambda$ in the above penalty. The best mode
 \begin{center}      
 \end{center}
 	
-The heatmaps above depict how the `dev.ratio` and number of selected features change as functions of the values of $\alpha$ and $\lambda$. The best model, in terms had a value of $\lambda$ very close to 0, and $\alpha$ very close to 0 (the ridge penalty). Ninety-seven variables of the original 201 had non-zero coefficients.
+The heatmaps above depict how the `dev.ratio` and number of selected features change as functions of the values of $\alpha$ and $\lambda$. The best model, in terms of `dev.ratio` had a value of $\lambda$ very close to 0, and $\alpha$ very close to 0 (the ridge penalty). Ninety-seven variables of the original 201 had non-zero coefficients.
     
 ###One Year and Five Year Predictions of Default (out of sample)
 
@@ -629,7 +629,7 @@ For the last part of our analysis, we estimated the distribution for the one- an
 
 ##Portfolio and Assumptions
 
-For the first task, we used the 500 loan portfolio described in the previous section.  For the second task, we assume that all active loans whose term length does not expire within the 1- and/or 5-year window are eligible for the tranche.  We select from the dataframe of total loans, a subset of active loans that meet this requirement.  We neglect pre-payment of loans and ignore accrued interest when determining yearly cashflow.
+For the first task, we used the 500 loan portfolio described in the previous section.  For the second task, we assume that all active loans whose term length does not expire within the 1- and/or 5-year window are eligible for the tranche.  We selected from the dataframe of total loans, a subset of active loans that meet this requirement.  We neglect pre-payment of loans and ignore accrued interest when determining yearly cashflow.
 
 
 
