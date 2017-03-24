@@ -17,3 +17,4 @@ The most important files to note are:
 - `model_fitting.md`: fits binary response models of loan default;
 - `loss_at_default_model.Rmd`: fits loss at default model and estimates VaR and AVaR; 
 - `cox_processing.R`, `cox_models.R`, `cox_diagnostic_functions.R`, `cox_refit_best_model.R`, and `cox_surv_probs.R`: taken together, fit Cox proportional hazards model and perform analysis. 
+- `final_report.Rmd`: contains all remaining analysis, including Tranche distribution estimation. 
